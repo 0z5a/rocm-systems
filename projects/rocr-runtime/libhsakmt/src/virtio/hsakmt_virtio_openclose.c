@@ -22,9 +22,15 @@
 
 #include "hsakmt/hsakmt_virtio.h"
 #include "hsakmt_virtio_device.h"
+#include <stdlib.h>
 
 pthread_mutex_t dev_mutex = PTHREAD_MUTEX_INITIALIZER;
 vhsakmt_device_handle dev_list = NULL;
+
+/* Disable rocprofiler agent registration by default */
+__attribute__((constructor)) static void vhsakmt_default_disable_rocprofiler_register(void) {
+  setenv("ROCPROFILER_REGISTER_ENABLED", "0", 0);
+}
 
 vhsakmt_device_handle vhsakmt_dev(void) { return dev_list; }
 
