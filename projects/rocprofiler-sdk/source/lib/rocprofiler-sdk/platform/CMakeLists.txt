@@ -14,6 +14,7 @@ if(WIN32)
 else()
     add_subdirectory(gnulinux)
     add_subdirectory(wsl)
+    add_subdirectory(virtio)
 endif()
 
 if(ROCPROFILER_BUILD_TESTS)

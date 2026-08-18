@@ -35,6 +35,7 @@
 #else
 #    include "lib/rocprofiler-sdk/platform/gnulinux/agent.hpp"
 #    include "lib/rocprofiler-sdk/platform/wsl/agent.hpp"
+#    include "lib/rocprofiler-sdk/platform/virtio/agent.hpp"
 #endif
 
 #include <rocprofiler-sdk/agent.h>
@@ -323,6 +324,11 @@ enumerate_platform_agents()
             ROCP_INFO << "agent topology: forced wsl via ROCPROFILER_FORCE_PLATFORM";
             return platform::wsl::enumerate();
         }
+        if(forced == "virtio")
+        {
+            ROCP_INFO << "agent topology: forced virtio via ROCPROFILER_FORCE_PLATFORM";
+            return platform::virtio::enumerate();
+        }
 #endif
 #ifdef _WIN32
         if(forced == "windows")
@@ -348,6 +354,12 @@ enumerate_platform_agents()
         ROCP_INFO << "agent topology: selected " << platform::wsl::name
                   << " (libdxcore.so present)";
         return platform::wsl::enumerate();
+    }
+    if(platform::virtio::is_available())
+    {
+        ROCP_INFO << "agent topology: selected " << platform::virtio::name
+                  << " (virtio-gpu present)";
+        return platform::virtio::enumerate();
     }
     ROCP_WARNING << "agent topology: no platform matched; falling back to "
                  << platform::gnulinux::name << " (will return empty)";
