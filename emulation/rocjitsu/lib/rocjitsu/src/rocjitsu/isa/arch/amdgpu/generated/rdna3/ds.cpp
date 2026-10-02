@@ -3777,6 +3777,13 @@ DsAddGsRegRtnDs::DsAddGsRegRtnDs(const MachineInst *inst)
   src_operands_[0] = &data0;
   num_src_ = 1;
   num_dst_ = 1;
+  set_memory_issue_info(
+      {amdgpu::MemoryCounterObligation{amdgpu::WaitCounterType::DSCNT,
+                                       (inst_.gds != 0 ? amdgpu::MemoryCompletionClass::GDS
+                                                       : amdgpu::MemoryCompletionClass::LDS)},
+       (inst_.gds != 0 ? amdgpu::MemoryCounterObligation{amdgpu::WaitCounterType::EXPCNT,
+                                                         amdgpu::MemoryCompletionClass::UNORDERED}
+                       : amdgpu::MemoryCounterObligation{})});
   flags_ |= MEMORY_WAIT_PRODUCER;
 }
 
@@ -3800,6 +3807,13 @@ DsSubGsRegRtnDs::DsSubGsRegRtnDs(const MachineInst *inst)
   src_operands_[0] = &data0;
   num_src_ = 1;
   num_dst_ = 1;
+  set_memory_issue_info(
+      {amdgpu::MemoryCounterObligation{amdgpu::WaitCounterType::DSCNT,
+                                       (inst_.gds != 0 ? amdgpu::MemoryCompletionClass::GDS
+                                                       : amdgpu::MemoryCompletionClass::LDS)},
+       (inst_.gds != 0 ? amdgpu::MemoryCounterObligation{amdgpu::WaitCounterType::EXPCNT,
+                                                         amdgpu::MemoryCompletionClass::UNORDERED}
+                       : amdgpu::MemoryCounterObligation{})});
   flags_ |= MEMORY_WAIT_PRODUCER;
 }
 

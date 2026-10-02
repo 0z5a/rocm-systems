@@ -102,12 +102,12 @@ struct XcdDistributionFixture {
 
   void initialize(Threading threading = Threading::Single, uint32_t dispatch_threads = 1,
                   const std::string &config_path = CONFIG_PATH) {
-    util::StringDiagnostic admission_diagnostic;
     ASSERT_TRUE(test::load_valid_config(config_path, loaded));
     initialize_loaded(threading, dispatch_threads);
   }
 
   void initialize_loaded(Threading threading = Threading::Single, uint32_t dispatch_threads = 1) {
+    util::StringDiagnostic admission_diagnostic;
     soc = loaded.soc();
     memory = loaded.memory();
     soc->set_dispatch_threads(dispatch_threads);
@@ -444,7 +444,9 @@ TEST(ScratchDispatchAbiTest, SuppliesQueueBaseAndDistinctOffsetsAfterSystemSgprs
   RJ_AMDHSA_BITS_SET(kd.kernel_code_properties, KERNEL_CODE_PROPERTY_ENABLE_SGPR_FLAT_SCRATCH_INIT,
                      1);
   fx.memory->load_image(reinterpret_cast<const uint8_t *>(&kd), sizeof(kd), kScratchKdAddr);
-  fx.memory->write32(kScratchKdAddr + sizeof(kd), build_s_endpgm(ROCJITSU_CODE_ARCH_CDNA2));
+  const auto endpgm = build_s_endpgm(ROCJITSU_CODE_ARCH_CDNA2);
+  ASSERT_TRUE(endpgm.succeeded());
+  fx.memory->write32(kScratchKdAddr + sizeof(kd), endpgm.value());
   auto plugin = std::make_unique<ScratchAbiPlugin>();
   auto *observed = plugin.get();
   auto group = std::make_shared<ExecutionPluginGroup>(PluginSinkConfig{});
@@ -506,7 +508,9 @@ TEST(ScratchDispatchAbiTest, KfdQueueFillsLegacyRdnaDescriptorForBothWaveSizes) 
       RJ_AMDHSA_BITS_SET(kd.kernel_code_properties, KERNEL_CODE_PROPERTY_ENABLE_WAVEFRONT_SIZE32,
                          wave_size == 32);
       fx.memory->load_image(reinterpret_cast<const uint8_t *>(&kd), sizeof(kd), kScratchKdAddr);
-      fx.memory->write32(kScratchKdAddr + sizeof(kd), build_s_endpgm(arch));
+      const auto endpgm = build_s_endpgm(arch);
+      ASSERT_TRUE(endpgm.succeeded());
+      fx.memory->write32(kScratchKdAddr + sizeof(kd), endpgm.value());
       auto plugin = std::make_unique<ScratchAbiPlugin>(true);
       auto *observed = plugin.get();
       auto group = std::make_shared<ExecutionPluginGroup>(PluginSinkConfig{});
@@ -625,7 +629,9 @@ TEST(WorkgroupInfoDispatchTest, ArchitectedWorkgroupIdsDoNotShiftAqlInfo) {
     RJ_AMDHSA_BITS_SET(kd.kernel_code_properties,
                        KERNEL_CODE_PROPERTY_ENABLE_SGPR_KERNARG_SEGMENT_PTR, 1);
     fx.memory->load_image(reinterpret_cast<const uint8_t *>(&kd), sizeof(kd), kKdAddr);
-    fx.memory->write32(kKdAddr + sizeof(kd), build_s_endpgm(arch));
+    const auto endpgm = build_s_endpgm(arch);
+    ASSERT_TRUE(endpgm.succeeded());
+    fx.memory->write32(kKdAddr + sizeof(kd), endpgm.value());
     auto plugin = std::make_unique<WorkgroupInfoPlugin>(true);
     auto *observed = plugin.get();
     auto group = std::make_shared<ExecutionPluginGroup>(PluginSinkConfig{});

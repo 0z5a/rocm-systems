@@ -14,6 +14,7 @@
 #include "rocjitsu/isa/arch/amdgpu/shared/fp_mode.h"
 #include "rocjitsu/isa/arch/amdgpu/shared/gfx11_dot2.h"
 #include "rocjitsu/isa/arch/amdgpu/shared/gfx12_dot.h"
+#include "rocjitsu/isa/arch/amdgpu/shared/graphics_instructions.h"
 #include "rocjitsu/isa/arch/amdgpu/shared/hwfloat/dx9_mul_f32_exec.h"
 #include "rocjitsu/isa/arch/amdgpu/shared/hwfloat/mul_f32_exec.h"
 #include "rocjitsu/isa/arch/amdgpu/shared/lds_direct.h"
@@ -220,7 +221,10 @@ inline void execute_image_bvh_intersect_ray_mimg([[maybe_unused]] Inst &inst,
 
 template <typename Inst>
 inline void execute_lds_param_load_ldsdir([[maybe_unused]] Inst &inst,
-                                          [[maybe_unused]] Wavefront &wf) {}
+                                          [[maybe_unused]] Wavefront &wf) {
+  amdgpu::execute_graphics_parameter_load(wf, inst.inst_.vdst, inst.inst_.attr,
+                                          inst.inst_.attr_chan);
+}
 
 template <typename Inst>
 inline void execute_s_abs_i32_sop1([[maybe_unused]] Inst &inst, [[maybe_unused]] Wavefront &wf) {
