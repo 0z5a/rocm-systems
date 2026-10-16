@@ -156,12 +156,7 @@ previous interpreter; instruction contracts document such exceptions.
 Rocjitsu's [`arithmetic.semantics`](configuration.md#cpu-arithmetic-policy)
 setting maps directly to these modes and defaults to compatibility. Its string
 values are the lowercase constant names without `RJ_ARITH_SEMANTICS_`.
-The migrated families are RDNA3/RDNA4 dense WMMA, RDNA4 sparse WMMA, and
-RDNA3/RDNA4 fused floating-point
-arithmetic, basic floating-point arithmetic and selection, division, dot products, math
-functions, comparisons, integer arithmetic, conversions, register and lane routing,
-graphics operations, scalar arithmetic and dual-issue arithmetic. Other handlers retain
-their existing implementations.
+
 
 ### Guest FP controls
 
@@ -262,14 +257,15 @@ sanitizers provide broader validation; ordinary tests need no GPU.
 Each `*_test.cpp` builds as a separate executable, with individual GTest cases
 exposed to CTest. Public headers are compiled independently as C23 and C++17.
 
-## Benchmarking (planned)
-
-No benchmark executable is built at this stage. The following describes its intended interface.
+## Benchmarking
 
 ### Workloads and reported results
 
 The benchmark covers WMMA, DOT, FP, and math entry points across supported CPU
-levels and semantics. Floating workloads include finite inputs and a single-NaN
+levels in Loose (0), strict bit-exact without FP status (2), and strict bit-exact
+with FP status (3). It omits fallback mode (1) and Compatibility (7): the goal
+is to compare the explicit arithmetic contracts, not simulator policy selection.
+End-to-end simulator benchmarks cover Compatibility. Floating workloads include finite inputs and a single-NaN
 variant to expose fallbacks triggered by a nonfinite input. Workloads use full
 EXEC and default modifiers and guest FP controls. CSV contains successful
 measurements only; unsupported modes are not timed as if they performed arithmetic.
