@@ -310,6 +310,25 @@ TEST(KernelDescriptorTranslator, Cdna4ToRdna4MaterializesXOnlyWorkgroupId) {
   EXPECT_EQ(translated->prologue_words, expected);
 }
 
+TEST(KernelDescriptorTranslator, Cdna4ToRdna4RejectsGuestWorkgroupInfo) {
+  using namespace rocjitsu::amdhsa;
+  auto fixture = mutable_vector_add_descriptor(ROCJITSU_CODE_ARCH_CDNA4, ROCJITSU_CODE_ARCH_RDNA4);
+  ASSERT_TRUE(fixture.valid);
+  kernel_descriptor_t *kd = mutable_kernel_descriptor(fixture);
+  kd->compute_pgm_rsrc2 = 0;
+  RJ_AMDHSA_BITS_SET(kd->compute_pgm_rsrc2, COMPUTE_PGM_RSRC2_USER_SGPR_COUNT, 2);
+  RJ_AMDHSA_BITS_SET(kd->compute_pgm_rsrc2, COMPUTE_PGM_RSRC2_ENABLE_SGPR_WORKGROUP_ID_X, 1);
+  RJ_AMDHSA_BITS_SET(kd->compute_pgm_rsrc2, COMPUTE_PGM_RSRC2_ENABLE_SGPR_WORKGROUP_ID_Y, 1);
+  RJ_AMDHSA_BITS_SET(kd->compute_pgm_rsrc2, COMPUTE_PGM_RSRC2_ENABLE_SGPR_WORKGROUP_INFO, 1);
+  const auto translations =
+      translate_mutable_descriptor(fixture, ROCJITSU_CODE_ARCH_CDNA4, ROCJITSU_CODE_ARCH_RDNA4);
+  const auto translated = std::ranges::find_if(translations, [&fixture](const auto &translation) {
+    return translation.descriptor_file_offset == fixture.kd_file_off;
+  });
+  ASSERT_NE(translated, translations.end());
+  EXPECT_FALSE(translated->supported);
+}
+
 TEST(KernelDescriptorTranslator, Cdna4ToRdna4SkipsPrologueWhenNoWorkgroupIdsAreEnabled) {
   using namespace rocjitsu::amdhsa;
 
