@@ -352,8 +352,8 @@ does not select direct-CU groups; their WGP IDs still follow CU child order.
 
 This policy currently applies to RDNA3/RDNA4 dense WMMA and RDNA4 sparse WMMA, fused floating-point arithmetic,
 basic floating-point arithmetic and selection, division, dot products, math functions,
-comparisons and integer arithmetic. Other instructions retain their existing
-implementations while integration proceeds by instruction family.
+comparisons, integer arithmetic and conversions. Other instructions retain their
+existing implementations while integration proceeds by instruction family.
 
 The optional top-level `arithmetic` object selects one semantics mode for
 RDNA3/RDNA4 instructions executed through rj-arith:
