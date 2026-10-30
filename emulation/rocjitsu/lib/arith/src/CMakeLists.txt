@@ -30,6 +30,12 @@ add_library(
     dot/half_dot.cpp
     dot/integer_dot.cpp
     dot/scalar_repair.cpp
+    math/half_trig.cpp
+    math/half_unary.cpp
+    math/rcp_iflag.cpp
+    math/trig.cpp
+    math/trig_preop.cpp
+    math/unary.cpp
     register/dpp.cpp
     wmma/swmmac16.cpp
     wmma/swmmac8.cpp
