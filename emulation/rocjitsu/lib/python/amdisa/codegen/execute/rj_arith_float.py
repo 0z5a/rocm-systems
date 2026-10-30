@@ -5,6 +5,7 @@
 
 from . import ExecuteContext
 from .rj_arith_names import wave_api
+from .rj_arith_graphics import CUBE_NAMES
 
 # RCP_IFLAG and SQRT carry their legacy exception policies into rj-arith;
 # other entries here have no legacy classifier.
@@ -102,6 +103,7 @@ BYTE_NIBBLE_CONVERSION_NAMES = {f'V_CVT_F32_UBYTE{byte}' for byte in range(4)} |
 }
 
 BIT_PACK_NAMES = {'V_PACK_B32_F16', 'V_CVT_PK_U8_F32'}
+
 
 SELECTION_F64 = {
     'rdna3': {'V_MIN_F64', 'V_MAX_F64'},
@@ -229,6 +231,7 @@ FLOAT_NAMES = (
     | CONVERSION16_NAMES
     | CONVERSION32_NAMES
     | CONVERSION64_NAMES
+    | CUBE_NAMES
     | DOT2_F32_NAMES
     | DOT4_F32_NAMES
     | FMA_F16
@@ -246,7 +249,7 @@ FLOAT_NAMES = (
     | UNARY_F16
     | UNARY_F32
     | UNARY_F64
-    | {'V_TRIG_PREOP_F64', 'V_FMA_F64', 'V_LDEXP_F64'}
+    | {'V_MULLIT_F32', 'V_LDEXP_F64', 'V_TRIG_PREOP_F64', 'V_FMA_F64'}
 )
 
 
