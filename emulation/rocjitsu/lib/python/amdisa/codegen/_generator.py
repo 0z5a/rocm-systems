@@ -1099,6 +1099,14 @@ class CodeGenerator:
             or (sem.semantic_class == 'vector_binop' and sem.operation == 'ldexp')
         ):
             return 0
+        if sem.name in (
+            'V_MOV_B32',
+            'V_MOVRELS_B32',
+            'V_MOVRELD_B32',
+            'V_MOVRELSD_B32',
+            'V_CNDMASK_B32',
+        ):
+            return 1 << 31
         if sem.name == 'V_PK_FMAC_F16':
             return 0
         bit = {
@@ -6782,6 +6790,18 @@ class CodeGenerator:
         rj_arith_compare = gen_class_compare(ctx)
         if rj_arith_compare is not None:
             return RjArithBody(rj_arith_compare)
+
+        from amdisa.codegen.execute.rj_arith_ds import gen_ds
+
+        rj_arith_ds = gen_ds(ctx)
+        if rj_arith_ds is not None:
+            return RjArithBody(rj_arith_ds)
+
+        from amdisa.codegen.execute.rj_arith_lane import gen_lane
+
+        rj_arith_lane = gen_lane(ctx)
+        if rj_arith_lane is not None:
+            return RjArithBody(rj_arith_lane)
 
         from amdisa.codegen.execute.rj_arith_vector import (
             gen_vector32,
@@ -14925,7 +14945,22 @@ class CodeGenerator:
                             False,
                         )
                     )
+                from amdisa.codegen.execute.rj_arith_ds import DS_NAMES
 
+                if self.isa_spec.arch_name in ('rdna3', 'rdna4') and any(
+                    i.name in DS_NAMES for i in all_insts
+                ):
+                    cpp_includes.append(
+                        ('rocjitsu/isa/arch/amdgpu/shared/rj_arith_ds_exec.h', False)
+                    )
+                from amdisa.codegen.execute.rj_arith_lane import LANE_HEADER_NAMES
+
+                if self.isa_spec.arch_name in ('rdna3', 'rdna4') and any(
+                    i.name in LANE_HEADER_NAMES for i in all_insts
+                ):
+                    cpp_includes.append(
+                        ('rocjitsu/isa/arch/amdgpu/shared/rj_arith_lane_exec.h', False)
+                    )
                 from amdisa.codegen.execute.rj_arith_float import FLOAT_NAMES
 
                 if self.isa_spec.arch_name in ('rdna3', 'rdna4') and any(
