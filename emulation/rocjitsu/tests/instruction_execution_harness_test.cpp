@@ -7457,7 +7457,7 @@ TEST(CdnaLegacyCvtF16Test, SetregImm32ModeControlsOverflowingF32ToF16) {
   }
 }
 
-TEST(Rdna4ScalarF16Test, AddDoesNotConsumeFp16OvflMode) {
+TEST(Rdna4ScalarF16Test, AddConsumesFp16OvflMode) {
   amdgpu::GpuMemory gpu_mem("rdna4_scalar_f16_add_mode_mem");
   amdgpu::L2Cache l2("rdna4_scalar_f16_add_mode_l2");
 
@@ -7486,9 +7486,13 @@ TEST(Rdna4ScalarF16Test, AddDoesNotConsumeFp16OvflMode) {
   ASSERT_NE(inst, nullptr);
   ASSERT_EQ(std::string_view(inst->mnemonic()), "s_add_f16");
 
-  wf->set_mode_raw(amdgpu::Wavefront::FP16_OVFL_BIT);
+  wf->set_mode_raw(0);
   EXPECT_TRUE(cu->execute_instruction(inst.get(), *wf).succeeded());
   EXPECT_EQ(cu->read_sgpr(sb + 2) & 0xFFFFu, 0x7C00u);
+  // gfx1201 saturates scalar FP16 arithmetic when FP16_OVFL is set.
+  wf->set_mode_raw(amdgpu::Wavefront::FP16_OVFL_BIT);
+  EXPECT_TRUE(cu->execute_instruction(inst.get(), *wf).succeeded());
+  EXPECT_EQ(cu->read_sgpr(sb + 2) & 0xFFFFu, 0x7BFFu);
 
   if (!wf->is_halted())
     wf->halt();
