@@ -6758,6 +6758,24 @@ class CodeGenerator:
             gen_half_dot,
         )
 
+        from amdisa.codegen.execute.rj_arith_compare import (
+            gen_integer_compare,
+            gen_float_compare,
+            gen_class_compare,
+        )
+
+        rj_arith_compare = gen_integer_compare(ctx)
+        if rj_arith_compare is not None:
+            return RjArithBody(rj_arith_compare)
+
+        rj_arith_compare = gen_float_compare(ctx)
+        if rj_arith_compare is not None:
+            return RjArithBody(rj_arith_compare)
+
+        rj_arith_compare = gen_class_compare(ctx)
+        if rj_arith_compare is not None:
+            return RjArithBody(rj_arith_compare)
+
         from amdisa.codegen.execute.rj_arith_division import gen_division
 
         rj_arith_division = gen_division(ctx)
@@ -13520,6 +13538,11 @@ class CodeGenerator:
                                 'vector_cmpx_class',
                             )
                         )
+                        _constant_compare = (
+                            self.isa_spec.arch_name in ('rdna3', 'rdna4')
+                            and _is_compare
+                            and sem.operation in ('f', 't')
+                        )
                         _is_cmpx = bool(
                             sem
                             and sem.semantic_class
@@ -13794,6 +13817,7 @@ class CodeGenerator:
                             _semantic_stages_src0 = self._semantic_stages_src0(sem)
                             if (
                                 not _reads_all_outputs
+                                and not _constant_compare
                                 and not _semantic_stages_src0
                                 and _dpp_struct
                                 and _supports_dpp_encoding
@@ -13811,6 +13835,7 @@ class CodeGenerator:
                                 )
                             if (
                                 not _reads_all_outputs
+                                and not _constant_compare
                                 and not _semantic_stages_src0
                                 and _supports_dpp8
                                 and _src0_name
@@ -14064,6 +14089,13 @@ class CodeGenerator:
                                         '    wf.set_vcc_raw(dpp_old_vcc_);\n'
                                         '  }\n'
                                     )
+                        if _rj_arith_arithmetic and _dpp_cleanup:
+                            # A rejected arithmetic call must not commit a comparison mask
+                            # through the DPP/SDWA postamble. RAII restores operand views.
+                            _dpp_cleanup = (
+                                '  if (wf.instruction_execution_failed()) return;\n'
+                                + _dpp_cleanup
+                            )
                         _result_format = self._sdwa_result_format(sem)
                         _output_policy = self._sdwa_output_policy(sem)
                         _local_body = body
@@ -14115,9 +14147,25 @@ class CodeGenerator:
                         )
                         # rj-arith owns SIMD selection for migrated instructions. Never
                         # run a legacy arithmetic probe ahead of the rj-arith body.
+                        from amdisa.codegen.execute.rj_arith_compare import (
+                            FLOAT_COMPARISONS,
+                        )
+
                         if _rj_arith_arithmetic:
                             can_share = False
                             _portable_probe = False
+                            if inst.name in FLOAT_COMPARISONS:
+                                _ordinary_result_commit_setup += (
+                                    '  const uint64_t exec_mask = wf.exec();\n'
+                                )
+                                _result_commit_setup += (
+                                    '  uint64_t exec_mask = wf.exec();\n'
+                                )
+                                if _has_dpp_encoding:
+                                    _result_commit_setup += (
+                                        '  if (inst_.src0 == amdgpu::SRC_DPP)\n'
+                                        '    exec_mask &= dpp_row_bank_mask_ & dpp_source_write_mask_;\n'
+                                    )
                         if not body_throws and (can_share or _portable_probe):
                             self._shared_execute_candidates[
                                 (inst.mnemonic, enc.enc_name)
@@ -14817,6 +14865,17 @@ class CodeGenerator:
                 if enc.enc_name.upper() in ('ENC_LDSDIR', 'ENC_VDSDIR'):
                     cpp_includes.append(
                         ('rocjitsu/isa/arch/amdgpu/shared/lds_direct.h', False)
+                    )
+                from amdisa.codegen.execute.rj_arith_compare import COMPARE_NAMES
+
+                if self.isa_spec.arch_name in ('rdna3', 'rdna4') and any(
+                    i.name in COMPARE_NAMES for i in all_insts
+                ):
+                    cpp_includes.append(
+                        (
+                            'rocjitsu/isa/arch/amdgpu/shared/rj_arith_compare_exec.h',
+                            False,
+                        )
                     )
 
                 from amdisa.codegen.execute.rj_arith_division import DIVISION_NAMES

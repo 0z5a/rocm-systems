@@ -158,9 +158,9 @@ setting maps directly to these modes and defaults to compatibility. Its string
 values are the lowercase constant names without `RJ_ARITH_SEMANTICS_`.
 The migrated families are RDNA3/RDNA4 dense WMMA, RDNA4 sparse WMMA, and
 RDNA3/RDNA4 fused floating-point
-arithmetic, basic floating-point arithmetic and selection, division, dot products and
-math functions. VOPD remains unmigrated. RDNA3.5, CDNA, and other handlers retain their
-existing implementations.
+arithmetic, basic floating-point arithmetic and selection, division, dot products, math
+functions and comparisons. VOPD remains unmigrated. RDNA3.5, CDNA, and other handlers
+retain their existing implementations.
 
 ### Guest FP controls
 
