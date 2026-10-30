@@ -5254,18 +5254,51 @@ def test_generated_rdna3_5_fuzz_disassembly_rules(amdgpu_generated_root: Path):
     )
 
 
+@pytest.mark.parametrize(
+    ('class_name', 'mip', 'derivatives', 'gather', 'mode'),
+    [
+        ('ImageSampleLMimg', 1, False, False, 'Explicit'),
+        ('ImageSampleDMimg', 0, True, False, 'Derivatives'),
+        ('ImageGather4LzMimg', 0, False, True, 'Zero'),
+    ],
+)
+def test_generated_image_forms_agree_on_address_tuple(
+    amdgpu_generated_root: Path,
+    class_name: str,
+    mip: int,
+    derivatives: bool,
+    gather: bool,
+    mode: str,
+):
+    directory = amdgpu_generated_root / _generated_dir_name('rdna3')
+    header = (directory / 'mimg.h').read_text()
+    execute = (directory / 'mimg_exec.cpp').read_text()
+    metadata = _generated_class_body(header, class_name)
+    body = _generated_function_body(execute, f'void {class_name}::execute_impl(')
+    constructor = _generated_constructor_body(
+        (directory / 'mimg.cpp').read_text(), class_name
+    )
+    width = constructor.split('vaddr(', 1)[1].split('OperandType::OPR_VGPR', 1)[0]
+    assert '32 *' in width
+    assert ('amdgpu::image_derivative_component_count(' in width) == derivatives
+    assert bool(re.search(r'\+\s*1u\b', width)) == bool(mip)
+    assert f'amdgpu::image_coordinate_count(inst_.dim) + {mip};' in metadata
+    assert ('modifiers.image_prefix_words' in metadata) == derivatives
+    assert ('modifiers.memory_result_last_bytes' in metadata) != gather
+    assert f'ImageSampleMode::{mode}' in body
+    assert f'.gather = {str(gather).lower()}' in body
+
+
 @pytest.mark.parametrize('arch', ['rdna3', 'rdna3_5'])
 def test_generated_gfx11_image_address_width_uses_dim_and_preserves_fixed_bvh(
     amdgpu_generated_root: Path, arch: str
 ):
     mimg = (amdgpu_generated_root / _generated_dir_name(arch) / 'mimg.cpp').read_text()
-    assert 'amdgpu::image_coordinate_count(dim)' in mimg
+    assert 'amdgpu::image_coordinate_register_count(' in mimg
     assert 'static constexpr uint8_t coords[]' not in mimg
     for class_name in ('ImageLoadMimg', 'ImageStoreMimg'):
         constructor = _generated_constructor_body(mimg, class_name)
-        assert (
-            'mimg_vaddr_bits(reinterpret_cast<const OpEncoding *>(inst)' in constructor
-        )
+        assert 'amdgpu::image_coordinate_register_count(' in constructor
         assert '(reinterpret_cast<const OpEncoding *>(inst)->srsrc * 4)' in constructor
         assert '(reinterpret_cast<const OpEncoding *>(inst)->a16 ? 64 : 96)' not in (
             constructor
