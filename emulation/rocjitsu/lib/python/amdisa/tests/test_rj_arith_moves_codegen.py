@@ -29,6 +29,26 @@ def context(arch, name, dst, src, *, is_vop3=False, result_writer=None):
     )
 
 
+@pytest.mark.parametrize('name', sorted(MOVES))
+def test_scalar_moves_preserve_conditional_observation(name):
+    for arch in ('rdna3', 'rdna4'):
+        body = gen_scalar(context(arch, name, ['d'], ['a']))
+        assert f'rj_arith_{name.lower()}(' in body
+        assert 'wf.write_scc' not in body
+        assert 'read_scalar(d)' not in body
+        if name.startswith('S_CMOV'):
+            assert body.index('if (!input_scc) return;') < body.index(
+                'RegisterAccess registers'
+            )
+        else:
+            assert 'read_scc' not in body
+        assert ('uint16_t(a.encoding_value())' in body) == ('MOVK' in name)
+        assert body.index('status != RJ_ARITH_SUCCESS') < body.index(
+            'registers.write_scalar'
+        )
+    assert gen_scalar(context('cdna5', name, ['d'], ['a'])) is None
+
+
 @pytest.mark.parametrize('arch', ['rdna3', 'rdna4'])
 def test_vector_move_and_conditional_controls(arch):
     word = gen_vector32(context(arch, 'V_MOV_B32', ['d'], ['a'], is_vop3=True))

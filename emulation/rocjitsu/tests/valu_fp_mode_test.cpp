@@ -1327,7 +1327,7 @@ std::vector<ArithmeticCase> host_mxcsr_cases() {
                          mode,
                          FE_TONEAREST,
                          kControlMask,
-                         daz});
+                         uses_default_host_controls(arch) ? (0x1f80u & kControlMask) : daz});
       };
       add("Preserve", 0x00000001u, 0x4b000000u, 0x00800000u, 0xf0u);
       add("PreserveNegative", 0x80000001u, 0x4b000000u, 0x80800000u, 0xf0u);
@@ -5366,17 +5366,17 @@ std::vector<ArithmeticCase> mullit_signaling_nan_cases() {
   return cases;
 }
 
-SimdPathExpectation simd_expectation_for_run(const ArithmeticCase &test, bool force_scalar,
-                                             bool uses_arith = false) {
-  // Migrated RDNA handlers use rj-arith dispatch, outside the legacy tracker.
-  if ((uses_arith && uses_default_host_controls(test.arch)) || !util::has_stdx_simd ||
-      !test.simd.checked)
+SimdPathExpectation simd_expectation_for_run(const ArithmeticCase &test, bool force_scalar) {
+  // Migrated RDNA handlers use rj-arith's dispatch, outside the legacy tracker.
+  // The library tests exercise each supported CPU backend directly.
+  if (test.arch == ROCJITSU_CODE_ARCH_RDNA3 || test.arch == ROCJITSU_CODE_ARCH_RDNA4 ||
+      !util::has_stdx_simd || !test.simd.checked)
     return {};
   return force_scalar ? expect_simd_fallback() : test.simd;
 }
 
 void expect_arithmetic_case(const ArithmeticCase &test, SimdPathExpectation simd = {},
-                            bool uses_arith = false) {
+                            bool uses_arith = true) {
   uses_arith &= test.arch == ROCJITSU_CODE_ARCH_RDNA3 || test.arch == ROCJITSU_CODE_ARCH_RDNA4;
   const int host_rounding = test.host_rounding;
   if (uses_arith) {
@@ -5472,9 +5472,7 @@ void expect_arithmetic_case(const ArithmeticCase &test, SimdPathExpectation simd
 class ValuFpModeTest : public testing::TestWithParam<ArithmeticCase> {};
 
 TEST_P(ValuFpModeTest, HonorsModeAndPreservesInactiveLanes) {
-  // VOPD still uses the legacy handlers and their host-environment contract.
-  const bool uses_arith = GetParam().name.find("Vopd") == std::string::npos;
-  expect_arithmetic_case(GetParam(), {}, uses_arith);
+  expect_arithmetic_case(GetParam(), {}, true);
 }
 
 // Restores the module-local force-scalar gate if an assertion leaves the test early.
@@ -5517,8 +5515,7 @@ TEST_P(ValuMinmaxFpModeTest, HonorsModeWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true),
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar),
                            /*uses_arith=*/true);
   }
 }
@@ -5530,8 +5527,7 @@ TEST_P(ValuIntegralRoundingModeTest, ModifiersWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true), true);
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar), true);
   }
 }
 
@@ -5556,8 +5552,7 @@ TEST_P(ValuCapturedLaneTest, MatchesHardwareWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true), true);
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar), true);
   }
 }
 
@@ -5623,8 +5618,7 @@ TEST_P(ValuDotFamilyTest, MatchesCapturesWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "forced scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true), true);
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar));
   }
 }
 
@@ -5643,8 +5637,7 @@ TEST_P(ValuLegacyRoundedResultModifierTest, MatchesCapturesWithSimdEnabledAndFor
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "forced scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true),
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar),
                            /*uses_arith=*/true);
   }
 }
@@ -5662,8 +5655,7 @@ TEST_P(ValuF16BinaryModifierTest, MatchesPolicyWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true),
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar),
                            /*uses_arith=*/true);
   }
 }
@@ -5681,8 +5673,7 @@ TEST_P(ValuSubtractionNanTest, MatchesCapturesWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true),
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar),
                            /*uses_arith=*/true);
   }
 }
@@ -5700,8 +5691,7 @@ TEST_P(ValuSubtractionSimdBoundaryTest, MatchesBoundaryWithSimdEnabledAndForcedS
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true),
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar),
                            /*uses_arith=*/true);
   }
 }
@@ -5737,8 +5727,7 @@ TEST_P(ValuSubtractionModeTest, MatchesCapturesWithSimdEnabledAndForcedScalar) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true),
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar),
                            /*uses_arith=*/true);
   }
 }
@@ -5756,8 +5745,7 @@ TEST_P(ValuCndmaskB16ModifierTest, MatchesCapturesWithSimdEnabledAndForcedScalar
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true));
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar));
   }
 }
 
@@ -5774,8 +5762,7 @@ TEST_P(ValuCndmaskB16HalfSelectionTest, AppliesModifiersToSelectedHalves) {
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true));
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar));
   }
 }
 
@@ -5884,7 +5871,7 @@ void expect_f16_binary_host_environment() {
         SCOPED_TRACE(test.name);
         SCOPED_TRACE(scalar ? "scalar" : "SIMD enabled");
         util::set_force_scalar_for_testing(scalar);
-        expect_arithmetic_case(test, simd_expectation_for_run(test, scalar, true), true);
+        expect_arithmetic_case(test, simd_expectation_for_run(test, scalar), true);
       }
     }
   }
@@ -6059,14 +6046,15 @@ INSTANTIATE_TEST_SUITE_P(MinmaxOutputModifiers, ValuMinmaxFpModeTest,
 
 class ValuConversionTest : public testing::TestWithParam<ArithmeticCase> {};
 
-// With SIMD enabled, each case asserts the fast path it takes, or that it has none.
+// Run captured conversions with native CPU dispatch and forced scalar execution.
+// RDNA3/4 use rj-arith, whose backends are covered by its own CPU-level tests;
+// the legacy SIMD tracker only describes the remaining architectures' handlers.
 TEST_P(ValuConversionTest, MatchesCapturesWithSimdEnabledAndForcedScalar) {
   ForceScalarGuard guard;
   for (const bool scalar : {true, false}) {
     SCOPED_TRACE(scalar ? "forced scalar" : "SIMD enabled");
     util::set_force_scalar_for_testing(scalar);
-    expect_arithmetic_case(GetParam(),
-                           simd_expectation_for_run(GetParam(), scalar, /*uses_arith=*/true));
+    expect_arithmetic_case(GetParam(), simd_expectation_for_run(GetParam(), scalar));
   }
 }
 

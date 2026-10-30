@@ -160,8 +160,8 @@ The migrated families are RDNA3/RDNA4 dense WMMA, RDNA4 sparse WMMA, and
 RDNA3/RDNA4 fused floating-point
 arithmetic, basic floating-point arithmetic and selection, division, dot products, math
 functions, comparisons, integer arithmetic, conversions, register and lane routing,
-graphics operations and scalar arithmetic. VOPD remains unmigrated. RDNA3.5, CDNA, and
-other handlers retain their existing implementations.
+graphics operations, scalar arithmetic and dual-issue arithmetic. Other handlers retain
+their existing implementations.
 
 ### Guest FP controls
 
