@@ -83,8 +83,9 @@ public:
     void set_version(std::string version);
 
     /**
-     * @return false, leaving the schema unchanged, if the id, environment variable, or
-     *         command-line spelling is already registered.
+     * @return false, leaving the schema unchanged, if the id is empty or already
+     *         registered, or the environment variable or command-line spelling is
+     *         already registered.
      */
     [[nodiscard]] bool add_param(schema_param param);
 

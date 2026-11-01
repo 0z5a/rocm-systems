@@ -62,7 +62,7 @@ schema::add_param(schema_param param)
         param.env && !param.env->empty() && m_env_index.contains(*param.env);
     const bool arg_taken =
         param.arg && !param.arg->empty() && m_arg_index.contains(*param.arg);
-    if(m_param_index.contains(param.id) || env_taken || arg_taken)
+    if(param.id.empty() || m_param_index.contains(param.id) || env_taken || arg_taken)
     {
         return false;
     }

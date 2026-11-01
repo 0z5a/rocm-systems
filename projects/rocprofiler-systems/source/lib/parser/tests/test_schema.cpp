@@ -112,6 +112,13 @@ TEST(parser_schema, indexes_stay_valid_after_growth)
     EXPECT_EQ(value.find_param_by_arg("--first"), first);
 }
 
+TEST(parser_schema, rejects_an_empty_id)
+{
+    schema value{};
+    EXPECT_FALSE(value.add_param(make_param("")));
+    EXPECT_TRUE(value.params().empty());
+}
+
 TEST(parser_schema, params_in_category)
 {
     schema value{};
