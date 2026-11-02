@@ -267,6 +267,9 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 - **Fixed `amd-smi` using the `amdsmi` Python library of another ROCm install**.  
   - When `ROCM_PATH` or `ROCM_HOME` named a different ROCm install, `amd-smi` loaded that install's library, so it either failed with an `AttributeError` or reported the other install's library and ROCm versions. `ROCM_PATH` and `ROCM_HOME` no longer redirect which `amdsmi` Python package `amd-smi` loads.
 
+- **Fixed the `amd-smi-lib` log directory keeping loose permissions after an upgrade**.  
+  - `/var/log/amd_smi_lib` is now root-owned `0755` and `AMD-SMI-lib.log` is `0644` after every install and upgrade, so only root can write to them.
+
 ## amd_smi_lib for ROCm 10.1.0
 
 ### Added
