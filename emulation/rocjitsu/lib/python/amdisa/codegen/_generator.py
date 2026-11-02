@@ -367,6 +367,7 @@ class CodeGenerator:
         'smem_atomic': 'scalar',
         'dcache_discard': 'scalar',
         'scratch_load_lds': 'vmem_load',
+        'global_load_lds': 'vmem_load',
         'flat_load': 'flat_load',
         'flat_store': 'flat_store',
         'flat_atomic': 'flat_atomic',
@@ -7994,7 +7995,7 @@ class CodeGenerator:
         if cls == 'smem_atomic':
             return self._gen_smem_atomic(sem)
 
-        if cls in ('flat_load', 'scratch_load_lds'):
+        if cls in ('flat_load', 'scratch_load_lds', 'global_load_lds'):
             return self._gen_flat_load(dst_ops, src_ops, sem)
 
         if cls == 'flat_store':
@@ -8894,7 +8895,7 @@ class CodeGenerator:
         L = []
         esz, ne = sem.elem_size, sem.num_elems
         block = sem.name in ('GLOBAL_LOAD_BLOCK', 'SCRATCH_LOAD_BLOCK')
-        dedicated_lds = sem.semantic_class == 'scratch_load_lds'
+        dedicated_lds = sem.semantic_class in ('scratch_load_lds', 'global_load_lds')
         legacy_lds = self._legacy_flat_lds_load(sem)
         sc0, sc1, nt = self._coherency_exprs()
         acc = self._acc_vgpr_expr
@@ -11043,8 +11044,10 @@ class CodeGenerator:
                     legacy_flat_lds_load = bool(
                         inst_sem and self._legacy_flat_lds_load(inst_sem)
                     )
-                    dedicated_scratch_lds_load = bool(
-                        inst_sem and inst_sem.semantic_class == 'scratch_load_lds'
+                    dedicated_lds_load = bool(
+                        inst_sem
+                        and inst_sem.semantic_class
+                        in ('scratch_load_lds', 'global_load_lds')
                     )
                     readwrite_output_sources = []
                     vgpr_msb_role_body = []
@@ -11314,7 +11317,7 @@ class CodeGenerator:
                                 'if (!inst_.lds) dst_operands_[num_dst_++] = &vdst;'
                             )
                         elif opnd.is_output and not (
-                            dedicated_scratch_lds_load and opnd.name == 'vdst'
+                            dedicated_lds_load and opnd.name == 'vdst'
                         ):
                             opnd_body.append(
                                 f'dst_operands_[{dst_idx}] = &{destination_operand};'
