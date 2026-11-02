@@ -8865,7 +8865,9 @@ class CodeGenerator:
             )
         )
 
-    def _append_flat_lds_destination(self, lines: list[str], dedicated: bool) -> None:
+    def _append_flat_lds_destination(
+        self, lines: list[str], dedicated: bool, registers: int = 1
+    ) -> None:
         indent = '  ' if dedicated else '    '
         if not dedicated:
             lines.append('  if (inst_.lds && (inst_.seg == 1 || inst_.seg == 2)) {')
@@ -8884,7 +8886,8 @@ class CodeGenerator:
         )
         lines.append(
             f'{indent}amdgpu::prepare_lds_destination(*d, wf.lds_base(), wf.lds_size(),'
-            f' static_cast<int64_t>(wf.m0() & {mask}) + offset, 4, 4);'
+            f' static_cast<int64_t>(wf.m0() & {mask}) + offset,'
+            f' {registers * 4}, {16 if registers >= 3 else registers * 4});'
         )
         if not dedicated:
             lines.append('  }')
@@ -8938,7 +8941,10 @@ class CodeGenerator:
             L.append('  d->request_force_l1_bypass = true;')
         L.append('  flat_calculate_addresses(inst_, wf, *d);')
         if dedicated_lds or legacy_lds:
-            self._append_flat_lds_destination(L, dedicated_lds)
+            assert ne is not None
+            self._append_flat_lds_destination(
+                L, dedicated_lds, ne if dedicated_lds else 1
+            )
         if block:
             L.append('  d->set_block_dword_mask(wf.m0());')
         L.append('  set_data(std::move(d));')
