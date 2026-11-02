@@ -4,6 +4,16 @@ Full documentation for HIP is available at [rocm.docs.amd.com](https://rocm.docs
 
 ## HIP 7.18.0 for ROCm 10.3.0
 
+### Added
+* New HIP APIs
+    - Memory Management: support for API parity with corresponding CUDA API.
+      * `hipMemcpyWithAttributesAsync` performs a single asynchronous 1D copy with the attributes
+        described by a `hipMemcpyAttributes` structure, without requiring the caller to build the
+        arrays that `hipMemcpyBatchAsync` takes.
+      * `hipMemcpy3DWithAttributesAsync` performs a single asynchronous 3D copy described by a
+        `hipMemcpy3DBatchOp` structure, without requiring the caller to build the operation list
+        that `hipMemcpy3DBatchAsync` takes.
+
 ### Resolved issues
 
 * Kernels without an LDS carveout preference now dispatch with no preference instead of a 0% LDS hint, and `hipFuncSetCacheConfig(hipFuncCachePreferNone)` no longer overrides `hipDeviceSetCacheConfig`.
