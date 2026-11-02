@@ -15,7 +15,6 @@
 #include <string>
 
 #include "../common/DdaFabricTestHelpers.hpp"
-#include "../common/ScopedEnv.hpp"
 #include "algorithms/dda/DdaCollSeams.h"
 
 #include "fakes/param_redirect.h"
@@ -27,7 +26,6 @@
 namespace {
 
 using RcclUnitTesting::DdaFabricMockComm;
-using RcclUnitTesting::ScopedEnv;
 
 void* const kSendbuff = reinterpret_cast<void*>(0x1000);
 void* const kRecvbuff = reinterpret_cast<void*>(0x2000);
@@ -80,7 +78,6 @@ class DdaAlltoallFabricLL128Microtest : public ::testing::Test {
 
   DdaFabricMockComm mock_;
   std::map<std::string, int64_t> params_;
-  ScopedEnv maxBpp_{"RCCL_DDA_LL128_A2A_MAXBPP", nullptr};
 };
 
 TEST_F(DdaAlltoallFabricLL128Microtest, Eligible_BaselineFp32) {
@@ -255,22 +252,26 @@ TEST_F(DdaAlltoallFabricLL128Microtest, Launch_GridStaysWithinTheEpochCellsAndCu
   EXPECT_EQ(RunOne(big).grid.y, 1u) << "one block per peer is the floor, even above the budget";
 }
 
-TEST_F(DdaAlltoallFabricLL128Microtest, Launch_MaxBlocksPerPeerFromEnv) {
+// The arch table's block budget is split across the peer columns; it sees the total, nRanks x the chunk.
+TEST_F(DdaAlltoallFabricLL128Microtest, Launch_BlockBudgetFromTheArchTable) {
   const size_t big = 64 * kWarpsPerBlock * kSliceFloats;
-  {
-    ScopedEnv maxBpp("RCCL_DDA_LL128_A2A_MAXBPP", "3");
-    EXPECT_EQ(RunOne(big).grid.y, 3u);
-    ScopedEnv one("RCCL_DDA_LL128_A2A_MAXBPP", "1");
-    EXPECT_EQ(RunOne(big).grid.y, 1u);
-  }
-  {
-    ScopedEnv aboveCap("RCCL_DDA_LL128_A2A_MAXBPP", "1000");
-    EXPECT_EQ(RunOne(big).grid.y, 64u);
-  }
-  for (const char* bad : {"", "0", "-2", "x"}) {
-    ScopedEnv maxBpp("RCCL_DDA_LL128_A2A_MAXBPP", bad);
-    EXPECT_EQ(RunOne(big).grid.y, 64u) << "env '" << bad << "'";
-  }
+  size_t seenTotal = 0;
+  g_rcclDdaFabricA2aLL128Blocks = [&seenTotal](const ncclComm*, size_t totalBytes) {
+    seenTotal = totalBytes;
+    return 30;
+  };
+  EXPECT_EQ(RunOne(big).grid.y, 10u);
+  EXPECT_EQ(seenTotal, 4 * big * sizeof(float));
+  g_rcclDdaFabricA2aLL128Blocks = [](const ncclComm*, size_t) { return 1; };
+  EXPECT_EQ(RunOne(big).grid.y, 1u) << "at least one block per peer";
+}
+
+// The arch table's block size applies unless RCCL_DDA_LL128_A2A_THREADS gives a valid one.
+TEST_F(DdaAlltoallFabricLL128Microtest, Launch_ThreadsFromTheArchTable) {
+  g_rcclDdaFabricA2aLL128Threads = [](const ncclComm*, size_t) { return 512; };
+  EXPECT_EQ(RunOne(4).block.x, 512u);
+  params_["RCCL_DDA_LL128_A2A_THREADS"] = 128;
+  EXPECT_EQ(RunOne(4).block.x, 128u);
 }
 
 TEST_F(DdaAlltoallFabricLL128Microtest, Launch_ThreadsOverrideMustBeAWarpMultipleUpTo1024) {
