@@ -65,6 +65,7 @@ inline constexpr const char* TIMELINE_PROFILE = "ROCPROFSYS_TIMELINE_PROFILE";
 inline constexpr const char* USE_SAMPLING        = "ROCPROFSYS_USE_SAMPLING";
 inline constexpr const char* USE_THREAD_SAMPLING = "ROCPROFSYS_USE_THREAD_SAMPLING";
 inline constexpr const char* SAMPLING_TIMER      = "ROCPROFSYS_SAMPLING_TIMER";
+inline constexpr const char* SAMPLING_ENGINE     = "ROCPROFSYS_SAMPLING_ENGINE";
 inline constexpr const char* SAMPLING_FREQ       = "ROCPROFSYS_SAMPLING_FREQ";
 inline constexpr const char* SAMPLING_DELAY      = "ROCPROFSYS_SAMPLING_DELAY";
 inline constexpr const char* SAMPLING_DURATION   = "ROCPROFSYS_SAMPLING_DURATION";

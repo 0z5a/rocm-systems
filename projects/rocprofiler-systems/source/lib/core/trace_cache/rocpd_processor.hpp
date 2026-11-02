@@ -47,6 +47,8 @@ public:
     void handle(const gpu_perf_counter_sample& sample) override;
     void handle(const hipfile_pmc_sample& sample) override;
     void handle(const kfd_sample& sample) override;
+    // cpu-snap call stacks are written to perfetto only, for now.
+    void handle(const cpu_snap_chunk_sample&) override {}
 
 private:
     void post_process_metadata();

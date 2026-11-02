@@ -163,7 +163,10 @@ struct config_value_validation
 // ROCPROFSYS_TRACE_DURATION=abc -> 0.0. If timemory callbacks become
 // unconditional and available before constructor parsing, the explicit env and
 // config-file validation paths can be removed.
-const auto k_strict_config_value_validations = std::array<config_value_validation, 6>{ {
+constexpr std::string_view k_sampling_engine_timemory = "timemory";
+constexpr std::string_view k_sampling_engine_cpu_snap = "cpu-snap";
+
+const auto k_strict_config_value_validations = std::array<config_value_validation, 7>{ {
     { .name        = env_vars::MODE,
       .rule        = config_value_rule::choice,
       .expectation = "one of the registered choices" },
@@ -184,6 +187,9 @@ const auto k_strict_config_value_validations = std::array<config_value_validatio
       .rule        = config_value_rule::positive_floating_point,
       .expectation = "a positive finite floating-point value" },
     { .name        = env_vars::TRACE_PERIOD_CLOCK_ID,
+      .rule        = config_value_rule::choice,
+      .expectation = "one of the registered choices" },
+    { .name        = env_vars::SAMPLING_ENGINE,
       .rule        = config_value_rule::choice,
       .expectation = "one of the registered choices" },
 } };
@@ -653,6 +659,82 @@ configure_rocm_tracing_settings(const std::shared_ptr<settings>& _config)
 
     register_rocm_group_by_queue_setting(_config, rocm_domain_choices);
 }
+
+// Settings read only by the timemory sampler; the cpu-snap engine ignores them.
+constexpr auto k_timemory_only_sampling_settings = std::to_array<std::string_view>({
+    env_vars::SAMPLING_TIDS,
+    env_vars::SAMPLING_CPUTIME_FREQ,
+    env_vars::SAMPLING_CPUTIME_DELAY,
+    env_vars::SAMPLING_CPUTIME_TIDS,
+    env_vars::SAMPLING_CPUTIME_SIGNAL,
+    env_vars::SAMPLING_REALTIME_FREQ,
+    env_vars::SAMPLING_REALTIME_DELAY,
+    env_vars::SAMPLING_REALTIME_TIDS,
+    env_vars::SAMPLING_REALTIME_SIGNAL,
+    env_vars::SAMPLING_OVERFLOW_FREQ,
+    env_vars::SAMPLING_OVERFLOW_TIDS,
+    env_vars::SAMPLING_OVERFLOW_SIGNAL,
+    env_vars::SAMPLING_OVERFLOW_EVENT,
+    env_vars::SAMPLING_ALLOCATOR_SIZE,
+});
+
+[[nodiscard]] std::string
+get_sampling_engine()
+{
+    return get_setting_value<std::string>(std::string{ env_vars::SAMPLING_ENGINE })
+        .value_or(std::string{ k_sampling_engine_timemory });
+}
+
+[[nodiscard]] bool
+is_set_by_user(const std::shared_ptr<settings>& cfg, std::string_view name)
+{
+    auto const itr = cfg->find(std::string{ name });
+    return itr != cfg->end() && itr->second &&
+           (itr->second->get_environ_updated() || itr->second->get_config_updated());
+}
+
+// Runs after the mode settings have settled ROCPROFSYS_USE_SAMPLING.
+void
+validate_cpu_snap_sampling_settings(const std::shared_ptr<settings>& cfg)
+{
+    auto const use_sampling =
+        get_setting_value<bool>(std::string{ env_vars::USE_SAMPLING }).value_or(false);
+    if(!use_sampling || get_sampling_engine() != k_sampling_engine_cpu_snap)
+    {
+        return;
+    }
+
+    auto const is_enabled = [](const char* name) {
+        return get_setting_value<bool>(std::string{ name }).value_or(false);
+    };
+
+    if(is_enabled(env_vars::SAMPLING_CPUTIME) && is_enabled(env_vars::SAMPLING_REALTIME))
+    {
+        throw std::runtime_error(fmt::format(
+            "Error! {}={} samples one clock per process, but both {} and {} are "
+            "enabled. Disable one of them",
+            env_vars::SAMPLING_ENGINE, k_sampling_engine_cpu_snap,
+            env_vars::SAMPLING_CPUTIME, env_vars::SAMPLING_REALTIME));
+    }
+    if(is_enabled(env_vars::SAMPLING_OVERFLOW))
+    {
+        throw std::runtime_error(fmt::format(
+            "Error! {}={} has no overflow sampling, but {} is enabled. Disable it or "
+            "set {}={}",
+            env_vars::SAMPLING_ENGINE, k_sampling_engine_cpu_snap,
+            env_vars::SAMPLING_OVERFLOW, env_vars::SAMPLING_ENGINE,
+            k_sampling_engine_timemory));
+    }
+
+    for(auto const name : k_timemory_only_sampling_settings)
+    {
+        if(is_set_by_user(cfg, name))
+        {
+            LOG_WARNING("{} is ignored with {}={}", name, env_vars::SAMPLING_ENGINE,
+                        k_sampling_engine_cpu_snap);
+        }
+    }
+}
 }  // namespace
 
 void
@@ -848,6 +930,14 @@ configure_settings(bool _init)
     ROCPROFSYS_CONFIG_SETTING(bool, env_vars::USE_SAMPLING,
                               "Enable statistical sampling of call-stack", false,
                               "backend", "sampling");
+
+    ROCPROFSYS_CONFIG_SETTING(
+        std::string, env_vars::SAMPLING_ENGINE,
+        "Call-stack sampler used when ROCPROFSYS_USE_SAMPLING is enabled: "
+        "'timemory' (the existing sampler) or 'cpu-snap' (experimental)",
+        std::string{ k_sampling_engine_timemory }, "sampling", "advanced")
+        ->set_choices({ std::string{ k_sampling_engine_timemory },
+                        std::string{ k_sampling_engine_cpu_snap } });
 
     ROCPROFSYS_CONFIG_SETTING(bool, env_vars::USE_THREAD_SAMPLING,
                               "[DEPRECATED] Renamed to ROCPROFSYS_USE_PROCESS_SAMPLING",
@@ -1836,6 +1926,7 @@ configure_settings(bool _init)
     configure_mode_settings(_config);
     configure_signal_handler(_config);
     configure_disabled_settings(_config);
+    validate_cpu_snap_sampling_settings(_config);
 
     LOG_DEBUG("Configuration complete");
 
@@ -2111,7 +2202,7 @@ get_sampling_signals(std::int64_t)
         _v.emplace(get_sampling_cputime_signal());
         _v.emplace(get_sampling_realtime_signal());
     }
-    else
+    else if(!get_use_cpu_snap_sampling())
     {
         if(get_use_sampling() && !get_use_sampling_cputime() &&
            !get_use_sampling_realtime() && !get_use_sampling_overflow())
@@ -2737,6 +2828,18 @@ get_use_sampling()
     static bool _v = false;
     return _v;
 #endif
+}
+
+bool
+get_use_timemory_sampling()
+{
+    return get_use_sampling() && get_sampling_engine() == k_sampling_engine_timemory;
+}
+
+bool
+get_use_cpu_snap_sampling()
+{
+    return get_use_sampling() && get_sampling_engine() == k_sampling_engine_cpu_snap;
 }
 
 bool&
