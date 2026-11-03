@@ -21,37 +21,32 @@ namespace rocprofsys::cpu_snap
 /// rocprof-sys setting values the cpu-snap sampler is built from.
 struct sampler_settings
 {
-    bool   cputime  = false;
-    bool   realtime = false;
-    double freq_hz  = 0.0;
+    bool   cputime = false;
+    double freq_hz = 0.0;
 };
 
 /**
  * @brief cpu-snap configuration for @p settings, without sink and logger.
  *
- * Wall time (@c realtime) uses the signal trigger. CPU time, also the default when
- * neither clock is set, uses the perf trigger. Timestamps use CLOCK_BOOTTIME, the
- * rocprof-sys timeline clock.
+ * Samples wall time with the signal trigger: per-thread POSIX timers and a real-time
+ * signal, no perf_event_open. CPU-time sampling is not supported yet. Timestamps use
+ * CLOCK_BOOTTIME, the rocprof-sys timeline clock.
  *
- * @throws std::logic_error When both clocks are set: configure_settings() rejects
- *         that combination for the cpu-snap engine.
+ * @throws std::logic_error When CPU time is requested: configure_settings() rejects
+ *         that for the cpu-snap engine.
  */
 [[nodiscard]] inline ::cpu_snap::sampling::sampler::config
 make_sampler_config(const sampler_settings& settings)
 {
-    if(settings.cputime && settings.realtime)
+    if(settings.cputime)
     {
-        throw std::logic_error("cpu-snap: CPU time and wall time are both set; "
+        throw std::logic_error("cpu-snap: CPU-time sampling is requested; "
                                "configure_settings() should have rejected this");
     }
 
-    auto const freq_hz = static_cast<std::uint32_t>(std::lround(settings.freq_hz));
-
-    auto cfg    = ::cpu_snap::sampling::sampler::config{};
-    cfg.backend = settings.realtime ? ::cpu_snap::sampling::backend_kind::signal
-                                    : ::cpu_snap::sampling::backend_kind::perf;
-    cfg.perf.sample_freq_hz   = freq_hz;
-    cfg.signal.sample_freq_hz = freq_hz;
+    auto cfg                  = ::cpu_snap::sampling::sampler::config{};
+    cfg.backend               = ::cpu_snap::sampling::backend_kind::signal;
+    cfg.signal.sample_freq_hz = static_cast<std::uint32_t>(std::lround(settings.freq_hz));
     cfg.clock                 = ::cpu_snap::sampling::clock_kind::boottime;
     return cfg;
 }

@@ -12,7 +12,8 @@ namespace rocprofsys::cpu_snap
  * @brief Creates the sampler from the settings and starts it.
  *
  * Call after trace-cache storage has started: the sampler stores its data there.
- * @throws cpu_snap::error When cpu-snap cannot sample, e.g. perf_event_open is refused.
+ * @throws cpu_snap::error When cpu-snap cannot sample, e.g. the application already
+ *         handles cpu-snap's real-time signal.
  */
 void
 setup();

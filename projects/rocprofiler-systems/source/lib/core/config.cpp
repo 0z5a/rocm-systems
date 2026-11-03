@@ -708,13 +708,16 @@ validate_cpu_snap_sampling_settings(const std::shared_ptr<settings>& cfg)
         return get_setting_value<bool>(std::string{ name }).value_or(false);
     };
 
-    if(is_enabled(env_vars::SAMPLING_CPUTIME) && is_enabled(env_vars::SAMPLING_REALTIME))
+    // cpu-snap runs only its signal trigger here (no perf_event_open), and that trigger
+    // does not expose CPU-time sampling yet.
+    if(is_enabled(env_vars::SAMPLING_CPUTIME))
     {
         throw std::runtime_error(fmt::format(
-            "Error! {}={} samples one clock per process, but both {} and {} are "
-            "enabled. Disable one of them",
+            "Error! {}={} samples wall time only for now, but {} is enabled. Disable "
+            "it (cpu-snap uses wall time) or set {}={}",
             env_vars::SAMPLING_ENGINE, k_sampling_engine_cpu_snap,
-            env_vars::SAMPLING_CPUTIME, env_vars::SAMPLING_REALTIME));
+            env_vars::SAMPLING_CPUTIME, env_vars::SAMPLING_ENGINE,
+            k_sampling_engine_timemory));
     }
     if(is_enabled(env_vars::SAMPLING_OVERFLOW))
     {
@@ -934,7 +937,8 @@ configure_settings(bool _init)
     ROCPROFSYS_CONFIG_SETTING(
         std::string, env_vars::SAMPLING_ENGINE,
         "Call-stack sampler used when ROCPROFSYS_USE_SAMPLING is enabled: "
-        "'timemory' (the existing sampler) or 'cpu-snap' (experimental)",
+        "'timemory' (the existing sampler) or 'cpu-snap' (experimental, wall time "
+        "only)",
         std::string{ k_sampling_engine_timemory }, "sampling", "advanced")
         ->set_choices({ std::string{ k_sampling_engine_timemory },
                         std::string{ k_sampling_engine_cpu_snap } });

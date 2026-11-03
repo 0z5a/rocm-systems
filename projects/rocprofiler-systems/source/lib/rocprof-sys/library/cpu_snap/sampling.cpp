@@ -56,9 +56,8 @@ read_settings()
     auto const is_enabled = [](const char* name) {
         return config::get_setting_value<bool>(std::string{ name }).value_or(false);
     };
-    return { .cputime  = is_enabled(env_vars::SAMPLING_CPUTIME),
-             .realtime = is_enabled(env_vars::SAMPLING_REALTIME),
-             .freq_hz  = config::get_sampling_freq() };
+    return { .cputime = is_enabled(env_vars::SAMPLING_CPUTIME),
+             .freq_hz = config::get_sampling_freq() };
 }
 }  // namespace
 
@@ -72,9 +71,7 @@ setup()
 
     g_sampler = std::make_unique<::cpu_snap::sampling::sampler>(std::move(cfg));
     g_sampler->start();
-    LOG_INFO("cpu-snap: sampling {} at {} Hz",
-             settings.realtime ? "wall time (signal trigger)" : "CPU time (perf trigger)",
-             settings.freq_hz);
+    LOG_INFO("cpu-snap: sampling wall time (signal trigger) at {} Hz", settings.freq_hz);
 }
 
 void
