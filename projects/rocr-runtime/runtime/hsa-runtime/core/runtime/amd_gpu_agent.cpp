@@ -690,16 +690,29 @@ void GpuAgent::ReserveScratch()
   assert(mem_err == HSA_STATUS_SUCCESS && "AvailableMemory failed");
   std::lock_guard<std::mutex> lock(scratch_lock_);
   if (!scratch_cache_.reserved_bytes() && reserved_sz && available > 8 * reserved_sz) {
+    // The reservation is an optimization: it pre-binds a block that
+    // AcquireQueueMainScratch can fall back on as one of its retry tiers. Queue
+    // creation does not depend on it, so a failure here continues without one.
     HSAuint64 alt_va;
     void* reserved_base = scratch_pool_.alloc(reserved_sz);
-    if (reserved_base == nullptr)
-      throw AMD::hsa_exception(HSA_STATUS_ERROR_OUT_OF_RESOURCES, "Reserve scratch memory failed.");
+    if (reserved_base == nullptr) {
+      if (core::Runtime::runtime_singleton_->flag().enable_queue_fault_message())
+        fprintf(stderr,
+                "Scratch reserve of %zu bytes failed, continuing without a reserved block.\n",
+                reserved_sz);
+      return;
+    }
 
     if (driver().MakeMemoryResident(reserved_base, reserved_sz, &alt_va) == HSA_STATUS_SUCCESS)
       scratch_cache_.reserve(reserved_sz, reserved_base);
     else {
       scratch_pool_.free(reserved_base);
-      throw AMD::hsa_exception(HSA_STATUS_ERROR_OUT_OF_RESOURCES, "Reserve scratch memory failed.");
+      if (core::Runtime::runtime_singleton_->flag().enable_queue_fault_message())
+        fprintf(stderr,
+                "Scratch reserve of %zu bytes could not be mapped, continuing without a "
+                "reserved block.\n",
+                reserved_sz);
+      return;
     }
   }
 }
