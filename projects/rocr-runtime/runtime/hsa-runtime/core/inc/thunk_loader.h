@@ -452,6 +452,13 @@ class ThunkLoader {
     bool DestroyThunkInstance();
     bool CheckThunkAbi();
     bool IsDXG() const { return is_dxg_; }
+    bool IsWinDxg() const {
+#if defined(_WIN32)
+      return is_dxg_;
+#else
+      return false;
+#endif
+    }
     // On Linux, DXG is only present under WSL2.
     // On Windows, DXG is the native driver (not WSL).
 #if defined(__linux__)
