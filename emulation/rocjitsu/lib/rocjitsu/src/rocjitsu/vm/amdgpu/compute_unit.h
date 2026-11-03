@@ -1430,7 +1430,7 @@ protected:
       std::conditional_t<EnableAsync, AsyncInstructionWindow *, NoAsyncWindow> window,
       std::conditional_t<EnableAsync, AsyncInstructionWindowStorage *, NoAsyncWindow> storage,
       const GpuVmAccess *vm_access, uint32_t vmid, const rj_code_binary_inst_t (&words)[4],
-      DecodeResult &decoded, bool reuse_decoded,
+      DecodeResult &decoded, bool debugger_active,
       DecodedInstructionCache::ScopedReturn &return_decoded);
   /// @brief Advance CU scheduling with compile-time selection of the issue adapter.
   /// @param selected_slots Slots whose running wave may issue; every slot by default.

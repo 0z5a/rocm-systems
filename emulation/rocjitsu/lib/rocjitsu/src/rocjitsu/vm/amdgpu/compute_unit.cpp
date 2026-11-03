@@ -2023,7 +2023,7 @@ template <bool EnableAsync>
   // return to the cache. The catch costs nothing until something throws.
   try {
     return issue_decoded_instruction<EnableAsync>(active, window, storage, vm_access, vmid, words,
-                                                  decoded, reuse_decoded, return_decoded);
+                                                  decoded, debugger_active, return_decoded);
   } catch (...) {
     return_decoded.discard();
     throw;
@@ -2037,7 +2037,7 @@ ComputeUnitCore::issue_decoded_instruction(
     std::conditional_t<EnableAsync, AsyncInstructionWindow *, NoAsyncWindow> window,
     std::conditional_t<EnableAsync, AsyncInstructionWindowStorage *, NoAsyncWindow> storage,
     const GpuVmAccess *vm_access, uint32_t vmid, const rj_code_binary_inst_t (&words)[4],
-    DecodeResult &decoded, bool reuse_decoded,
+    DecodeResult &decoded, bool debugger_active,
     DecodedInstructionCache::ScopedReturn &return_decoded) {
   const auto drain_async_window = [&]() {
     if constexpr (EnableAsync) {
@@ -2046,8 +2046,6 @@ ComputeUnitCore::issue_decoded_instruction(
     }
   };
   const bool vm_address_space = vm_access != nullptr;
-  // Decoding bypasses reuse exactly while a debugger is attached.
-  const bool debugger_active = !reuse_decoded;
   Instruction *inst = decoded.value().get();
   const auto fail_current_instruction = [&]() {
     return_decoded.discard();
