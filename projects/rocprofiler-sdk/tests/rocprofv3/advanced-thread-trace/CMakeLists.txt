@@ -37,8 +37,9 @@ set(CMAKE_MESSAGE_INDENT "[${PROJECT_NAME}] ")
 string(REPLACE "LD_PRELOAD=" "--preload;" PRELOAD_ARGS
                "${ROCPROFILER_MEMCHECK_PRELOAD_ENV}")
 
-rocprofiler_configure_pytest_files(CONFIG pytest.ini COPY validate.py conftest.py
-                                                          att_input.json)
+rocprofiler_configure_pytest_files(
+    CONFIG pytest.ini COPY validate.py conftest.py att_input.json
+                           att_no_intercept_preflight.py)
 
 find_package(rocprofiler-sdk REQUIRED)
 
@@ -474,18 +475,29 @@ endif()
 
 set(ATT_NO_INTERCEPT_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/att-no-intercept-out")
 
+rocprofiler_add_integration_validate_test(
+    rocprofv3-test-att-no-intercept-preflight
+    TEST_PATHS att_no_intercept_preflight_test.py
+    COPY conftest.py att_no_intercept_preflight.py
+    CONFIG pytest.ini
+    TIMEOUT 30
+    LABELS "integration-tests;thread-trace")
+
 rocprofiler_add_integration_execute_test(
     rocprofv3-test-att-no-intercept
     COMMAND
-        $<TARGET_FILE:rocprofiler-sdk::rocprofv3> -d ${ATT_NO_INTERCEPT_OUT_DIR}
-        --att-no-intercept --kernel-include-regex looping_lds_kernel --output-format json
-        --log-level env -o out -- $<TARGET_FILE:thread-trace-test-app>
+        ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/att_no_intercept_preflight.py
+        --library ${attdecoder_LIBRARY} -- $<TARGET_FILE:rocprofiler-sdk::rocprofv3> -d
+        ${ATT_NO_INTERCEPT_OUT_DIR} --att-no-intercept --kernel-include-regex
+        looping_lds_kernel --output-format json --log-level env -o out --
+        $<TARGET_FILE:thread-trace-test-app>
     DEPENDS thread-trace-test-app
     LABELS "integration-tests;thread-trace"
     TIMEOUT 45
     DISABLED ${ATT_NO_INTERCEPT_DISABLE}
     ENVIRONMENT "ROCPROF_ATT_LIBRARY_PATH=${attdecoder_LIB_DIR}"
     FAIL_REGULAR_EXPRESSION "${ROCPROFILER_DEFAULT_FAIL_REGEX}"
+    SKIP_REGULAR_EXPRESSION "SKIP_ATT_NO_INTERCEPT_QUICK_SCAN"
     FIXTURES_SETUP rocprofv3-test-att-no-intercept)
 
 rocprofiler_add_integration_validate_test(
@@ -498,7 +510,9 @@ rocprofiler_add_integration_validate_test(
     LABELS "integration-tests;thread-trace"
     DISABLED ${ATT_NO_INTERCEPT_DISABLE}
     FIXTURES_REQUIRED rocprofv3-test-att-no-intercept
-    ARGS --att-no-intercept-out-dir ${ATT_NO_INTERCEPT_OUT_DIR}
+    ARGS --att-no-intercept-out-dir ${ATT_NO_INTERCEPT_OUT_DIR} --att-decoder-library
+         ${attdecoder_LIBRARY}
+    SKIP_REGULAR_EXPRESSION "SKIP_ATT_NO_INTERCEPT_QUICK_SCAN"
     FAIL_REGULAR_EXPRESSION "AssertionError")
 
 set(ATT_CODE_OBJECT_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/att-code-object-out")

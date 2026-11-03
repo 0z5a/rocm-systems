@@ -31,6 +31,8 @@ children, native imports).
 """
 
 import os
+import select
+import signal
 import sys
 import time
 
@@ -105,19 +107,46 @@ def test_doctor_system_touch_probe_unwritable(accessor, tmp_path):
 # ----------------------------------------------------------------------
 # run(): timeouts, signals, process trees
 # ----------------------------------------------------------------------
-def test_doctor_system_run_timeout_kills_the_whole_process_tree(env, accessor, tmp_path):
+def test_doctor_system_run_timeout_kills_the_whole_process_tree(
+    env, accessor, monkeypatch
+):
     """Review P2: killing only the immediate child left grandchildren running."""
-    pidfile = tmp_path / "grandchild.pid"
-    script = "sleep 60 & echo $! > {}; wait".format(pidfile)
-    returncode, _, stderr = accessor.run(["sh", "-c", script], timeout=1)
+    create_process = env.subprocess.Popen
+    process = None
+    grandchild = None
 
-    assert returncode == env.RUN_TIMEOUT
-    assert "timed out" in stderr
-    grandchild = int(pidfile.read_text())
-    deadline = time.time() + 5
-    while _alive(grandchild) and time.time() < deadline:
-        time.sleep(0.05)
-    assert not _alive(grandchild)
+    def start_ready_process(*args, **kwargs):
+        nonlocal process, grandchild
+        assert kwargs.get("start_new_session") is True
+        process = create_process(*args, **kwargs)
+        readable, _, _ = select.select([process.stdout], [], [], 5)
+        assert readable, "child did not announce its grandchild"
+        grandchild = int(process.stdout.readline())
+        assert _alive(grandchild)
+        return process
+
+    monkeypatch.setattr(env.subprocess, "Popen", start_ready_process)
+    try:
+        returncode, _, stderr = accessor.run(
+            ["sh", "-c", "sleep 60 & echo $!; wait"], timeout=1
+        )
+
+        assert returncode == env.RUN_TIMEOUT
+        assert "timed out" in stderr
+        deadline = time.time() + 5
+        while _alive(grandchild) and time.time() < deadline:
+            time.sleep(0.05)
+        assert not _alive(grandchild)
+    finally:
+        if process is not None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            process.wait(timeout=5)
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
 
 
 def test_doctor_system_run_signal_is_not_a_timeout(env, accessor):

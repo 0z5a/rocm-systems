@@ -27,6 +27,8 @@ import json
 from rocprofiler_sdk.pytest_utils.dotdict import dotdict
 from rocprofiler_sdk.pytest_utils import collapse_dict_list
 
+from att_no_intercept_preflight import SKIP_REASON, quick_scan_supported
+
 import re
 import os
 
@@ -83,6 +85,11 @@ def pytest_addoption(parser):
         "--att-no-intercept-out-dir",
         action="store",
         help="Path to ATT no-intercept output directory.",
+    )
+    parser.addoption(
+        "--att-decoder-library",
+        action="store",
+        help="Path to the decoder used by the ATT no-intercept capture.",
     )
     parser.addoption(
         "--att-no-detail-out-dir",
@@ -168,6 +175,9 @@ def att_marker_trace_out_dir_path(request):
 
 @pytest.fixture
 def att_no_intercept_out_dir_path(request):
+    library = request.config.getoption("--att-decoder-library")
+    if library and not quick_scan_supported(library):
+        pytest.skip(SKIP_REASON)
     output_dir_path = request.config.getoption("--att-no-intercept-out-dir")
     if not output_dir_path:
         pytest.skip("--att-no-intercept-out-dir not provided")
