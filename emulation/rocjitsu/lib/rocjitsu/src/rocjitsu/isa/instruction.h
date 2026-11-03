@@ -97,7 +97,7 @@ enum InstFlags : uint64_t {
   INVALID_IU_MODIFIERS = (1ULL << 28),
   /// @brief A qualified scalar data tuple violates its ISA alignment requirement.
   MISALIGNED_SCALAR_DATA = (1ULL << 29),
-  /// @brief s_trap: the issue loop enters the trap handler instead of executing it.
+  /// @brief Software trap instruction (s_trap).
   SOFTWARE_TRAP = (1ULL << 30)
 };
 
