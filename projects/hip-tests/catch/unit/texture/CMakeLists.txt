@@ -5,6 +5,7 @@
 # Common Tests - Test independent of all platforms
 set(TEST_SRC
     hipCreateTextureObject_ArgValidation.cc
+    hipCreateTextureObject_MaxAnisotropy.cc
     hipCreateTextureObject_Linear.cc
     hipCreateTextureObject_Pitch2D.cc
     hipCreateTextureObject_Array.cc

@@ -2320,7 +2320,7 @@ void Device::destroyScratchBuffers() {
 
 void Device::fillHwSampler(uint32_t state, void* hwState, uint32_t hwStateSize,
                            const uint* addressMode, uint32_t mipFilter, float minLod,
-                           float maxLod) const {
+                           float maxLod, uint32_t maxAnisotropy) const {
   Pal::SamplerInfo samplerInfo = {};
   assert(addressMode != nullptr);
   samplerInfo.borderColorType = Pal::BorderColorType::TransparentBlack;
@@ -2332,11 +2332,34 @@ void Device::fillHwSampler(uint32_t state, void* hwState, uint32_t hwStateSize,
 
   state &= ~amd::Sampler::StateNormalizedCoordsMask;
 
+  // PAL applies maxAnisotropy only when the filter is one of the anisotropic
+  // variants, and both the point and the linear variants count - see
+  // IsAnisoEnabled().
+  const bool aniso = (maxAnisotropy >= 2);
+  // 16 is the maximum ratio the HW supports. Clamp here rather than passing a
+  // larger value down: PAL's GetAnisoRatio() matches 16 exactly, so anything
+  // above it would fall back to 1:1 instead of saturating at 16:1.
+  constexpr uint32_t kMaxAnisotropy = 16;
+  const uint32_t clampedAnisotropy = (maxAnisotropy > kMaxAnisotropy)
+                                         ? kMaxAnisotropy : maxAnisotropy;
+
   // Program texture filter mode
   if (state == amd::Sampler::StateFilterLinear) {
-    samplerInfo.filter.magnification = Pal::XyFilterLinear;
-    samplerInfo.filter.minification = Pal::XyFilterLinear;
+    samplerInfo.filter.magnification =
+        aniso ? Pal::XyFilterAnisotropicLinear : Pal::XyFilterLinear;
+    samplerInfo.filter.minification =
+        aniso ? Pal::XyFilterAnisotropicLinear : Pal::XyFilterLinear;
     samplerInfo.filter.zFilter = Pal::ZFilterLinear;
+  } else if (aniso) {
+    // Point sampling supports anisotropy too; without this the filters stay at
+    // the zero-initialized XyFilterPoint and maxAnisotropy would be ignored.
+    samplerInfo.filter.magnification = Pal::XyFilterAnisotropicPoint;
+    samplerInfo.filter.minification = Pal::XyFilterAnisotropicPoint;
+  }
+
+  if (aniso) {
+    // PAL maps this onto the supported set {1, 2, 4, 8, 16} (palDevice.h).
+    samplerInfo.maxAnisotropy = clampedAnisotropy;
   }
 
   if (mipFilter == CL_FILTER_NEAREST) {
@@ -2781,7 +2804,7 @@ bool Sampler::create(const amd::Sampler& owner) {
     return false;
   }
   dev_.fillHwSampler(owner.state(), hwState_, HsaSamplerObjectSize, owner.addessMode(),
-                     owner.mipFilter(), owner.minLod(), owner.maxLod());
+                     owner.mipFilter(), owner.minLod(), owner.maxLod(), owner.maxAnisotropy());
   return true;
 }
 

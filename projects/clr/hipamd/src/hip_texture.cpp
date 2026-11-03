@@ -144,10 +144,10 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject, const hipReso
     return hipErrorInvalidValue;
   }
 
-  // We don't program the max_ansio_ratio field in the the HW sampler SRD.
-  if (pTexDesc->maxAnisotropy != 0) {
-    return hipErrorNotSupported;
-  }
+  // maxAnisotropy is passed through as requested. The backend maps it onto the
+  // ratios the HW supports - 1, 2, 4, 8 and 16 - clamping values in between
+  // down to the closest supported ratio below the request, and only applies it
+  // alongside linear filtering. 16 is the maximum ratio.
   // We don't program the lod_bias field in the HW sampler SRD.
   if (pTexDesc->mipmapLevelBias != 0) {
     LogError("mipmapLevelBias not supported!");
@@ -197,7 +197,7 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject, const hipReso
   std::unique_ptr<amd::Sampler, decltype(sampler_deleter)> sampler(
       new amd::Sampler(*hip::getCurrentDevice()->asContext(), pTexDesc->normalizedCoords,
                        addressMode, filterMode, mipFilterMode, pTexDesc->minMipmapLevelClamp,
-                       pTexDesc->maxMipmapLevelClamp),
+                       pTexDesc->maxMipmapLevelClamp, pTexDesc->maxAnisotropy),
       sampler_deleter);
 
   if (sampler.get() == nullptr) {
