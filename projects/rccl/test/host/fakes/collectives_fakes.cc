@@ -15,6 +15,8 @@
 // and tests asserting log content must see the same text production emits.
 // Keep these switches faithful to src/collectives.cc.
 
+#include <functional>
+
 #include "comm.h"
 #include "device.h"
 #include "info.h"
@@ -103,9 +105,12 @@ const char* ncclDevRedOpToString(ncclDevRedOp_t) { return "redop"; }
 // Same env name and default (off) as collectives.cc:452.
 int64_t rcclParamAlltoAllPivotEnable() { return g_loadParam("RCCL_ALL_TO_ALL_PIVOT_ENABLE", 0); }
 
-// src/collectives.cc: faithful for check mode and revoke; the suspended-comm arm (memManager state) is
-// not modelled.
+std::function<bool(ncclComm*)> g_collectiveMustUseEnqueuePath;
+
+// src/collectives.cc: faithful for check mode and revoke; tests drive the suspended-comm arm
+// (memManager state) through g_collectiveMustUseEnqueuePath.
 bool rcclCollectiveMustUseEnqueuePath(ncclComm* comm) {
+  if (g_collectiveMustUseEnqueuePath) return g_collectiveMustUseEnqueuePath(comm);
   return comm == nullptr || comm->checkMode != ncclCheckModeDefault ||
          __atomic_load_n(&comm->revokedFlag, __ATOMIC_ACQUIRE);
 }
