@@ -377,7 +377,6 @@ def evaluate_metric_composites(
         raw_pmc_df,
         sys_vars,
         empirical_peaks,
-        pass_layout=pass_layout,
     )
 
     results: dict[tuple[object, str], object] = {}
@@ -585,7 +584,6 @@ def _fill_and_evaluate_metric_rows(
         raw_pmc_df,
         sys_vars,
         empirical_peaks,
-        pass_layout=pass_layout,
     )
 
 
