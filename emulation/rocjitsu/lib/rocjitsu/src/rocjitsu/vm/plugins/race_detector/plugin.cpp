@@ -468,6 +468,12 @@ void RaceDetectorPlugin::onAmdgpuMemoryAccessRouted(const amdgpu::MemoryAccessOb
       for (uint32_t lane = 0; lane < wf.wf_size(); ++lane) {
         ldsAddrs[lane] =
             d.lds_per_lane_addr ? d.per_lane_lds_addr[lane] : d.lds_base + lane * perLaneBytes;
+        if (!(validLaneMask & (uint64_t{1} << lane)))
+          continue;
+        const auto bytes = detector->ldsBytesInRange(ldsAddrs[lane], perLaneBytes, perLaneBytes);
+        if (bytes != 0)
+          detector->validateWrite(static_cast<int>(ldsAddrs[lane]), waveId, static_cast<int>(lane),
+                                  static_cast<int>(bytes), memoryOrder);
       }
       rs->registerLdsEvent(instruction, MemoryEventType::GLOBAL_TO_LDS, {}, validLaneMask,
                            wf.wf_size(), std::span<const uint32_t>(ldsAddrs, wf.wf_size()),
