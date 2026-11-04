@@ -64,6 +64,51 @@ queue_t::architecture () const
   return *agent ().architecture ();
 }
 
+void
+queue_t::cleanup_dependent_objects ()
+{
+  process_t &process = this->process ();
+
+  /* Destruct all waves, workgroups, clusters, and dispatches associated with
+     this queue.  Waves that are executing a displaced stepped instruction
+     will release the displaced stepping buffer when destructed, and raise a
+     command terminated event if single-stepping (see wave_t::~wave_t).  */
+
+  auto &&wave_range = process.range<wave_t> ();
+  for (auto it = wave_range.begin (); it != wave_range.end ();)
+    it = (it->queue () == *this) ? process.destroy (it) : ++it;
+
+  auto &&workgroup_range = process.range<workgroup_t> ();
+  for (auto it = workgroup_range.begin (); it != workgroup_range.end ();)
+    it = (it->queue () == *this) ? process.destroy (it) : ++it;
+
+  auto &&cluster_range = process.range<cluster_t> ();
+  for (auto it = cluster_range.begin (); it != cluster_range.end ();)
+    it = (it->queue () == *this) ? process.destroy (it) : ++it;
+
+  auto &&dispatch_range = process.range<dispatch_t> ();
+  for (auto it = dispatch_range.begin (); it != dispatch_range.end ();)
+    it = (it->queue () == *this) ? process.destroy (it) : ++it;
+
+  /* Discard any cached data associated with the queue since the queue may have
+     been deleted.  In that case, the memory being used for the context save
+     area could be re-allocated for other purposes.  If that happens, we do not
+     want to see stale data, or for stale dirty data to corrupt the future use.
+     If the process is being detached, then there's really no need to discard
+     since the process will be destructed and the cache destructed.  */
+
+  const auto xcc_count = agent ().os_info ().xcc_count;
+
+  agent ().memory_cache ().discard (
+    m_os_queue_info.ctx_save_restore_address,
+    xcc_count * m_os_queue_info.ctx_save_restore_area_size, true);
+}
+
+compute_queue_t::~compute_queue_t ()
+{
+  cleanup_dependent_objects ();
+}
+
 /* Return the address of a park instruction.  */
 agent_address_t
 compute_queue_t::park_instruction_address ()
@@ -670,7 +715,6 @@ private:
 public:
   aql_queue_t (amd_dbgapi_queue_id_t queue_id, const agent_t &agent,
                const os_queue_snapshot_entry_t &os_queue_info);
-  ~aql_queue_t () override;
 
   /* Return the queue type.  */
   amd_dbgapi_os_queue_type_t type () const override
@@ -974,45 +1018,6 @@ aql_queue_t::aql_queue_t (amd_dbgapi_queue_id_t queue_id, const agent_t &agent,
   if ((size () / aql_packet_size)
       > architecture ().maximum_queue_packet_count ())
     fatal_error ("queue ring size = %#zx is not supported", size ());
-}
-
-aql_queue_t::~aql_queue_t ()
-{
-  process_t &process = this->process ();
-
-  /* Destruct all waves, workgroups, clusters, and dispatches associated with
-     this queue.  Waves that are executing a displaced stepped instruction
-     will release the displaced stepping buffer when destructed, and raise a
-     command terminated event if single-stepping (see wave_t::~wave_t).  */
-
-  auto &&wave_range = process.range<wave_t> ();
-  for (auto it = wave_range.begin (); it != wave_range.end ();)
-    it = (it->queue () == *this) ? process.destroy (it) : ++it;
-
-  auto &&workgroup_range = process.range<workgroup_t> ();
-  for (auto it = workgroup_range.begin (); it != workgroup_range.end ();)
-    it = (it->queue () == *this) ? process.destroy (it) : ++it;
-
-  auto &&cluster_range = process.range<cluster_t> ();
-  for (auto it = cluster_range.begin (); it != cluster_range.end ();)
-    it = (it->queue () == *this) ? process.destroy (it) : ++it;
-
-  auto &&dispatch_range = process.range<dispatch_t> ();
-  for (auto it = dispatch_range.begin (); it != dispatch_range.end ();)
-    it = (it->queue () == *this) ? process.destroy (it) : ++it;
-
-  /* Discard any cached data associated with the queue since the queue may have
-     been deleted.  In that case, the memory being used for the context save
-     area could be re-allocated for other purposes.  If that happens, we do not
-     want to see stale data, or for stale dirty data to corrupt the future use.
-     If the process is being detached, then there's really no need to discard
-     since the process will be destructed and the cache destructed.  */
-
-  const auto xcc_count = agent ().os_info ().xcc_count;
-
-  agent ().memory_cache ().discard (
-    m_os_queue_info.ctx_save_restore_address,
-    xcc_count * m_os_queue_info.ctx_save_restore_area_size, true);
 }
 
 std::optional<amd_dbgapi_os_queue_packet_id_t>

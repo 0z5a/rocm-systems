@@ -207,6 +207,17 @@ public:
   const agent_t &agent () const { return m_agent; }
   process_t &process () const;
   const architecture_t &architecture () const;
+
+protected:
+  /* Make sure that any object that could still contain a reference
+     to the current queue is deleted (such as waves, workgroups, ...).  This
+     is meant to be used by any subclass' destructor.
+
+     This cleanup cannot exist directly in ~queue_t, because cleaning
+     dependent objects will usually call into virtual functions overridden by
+     child classes.  If the cleanup was called from queue_t::~queue_t, we
+     could not reach those overrides anymore.  */
+  void cleanup_dependent_objects ();
 };
 
 /* Interface implemented by all compute queues.  */
@@ -271,6 +282,7 @@ public:
     : queue_t (queue_id, agent, os_queue_info)
   {
   }
+  ~compute_queue_t () override;
 
   void wave_state_changed (const wave_t &wave) override;
 
