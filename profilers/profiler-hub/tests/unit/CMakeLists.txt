@@ -91,3 +91,38 @@ gtest_discover_tests(
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     PROPERTIES LABELS "unit"
 )
+
+# Separate from profiler-hub_unit_tests: these tests instantiate database_backend
+# directly, and building them into that executable makes its writer/reader/ctx
+# tests segfault.
+add_executable(
+    profiler-hub_sqlite_backend_tests
+    sqlite_backend_discover_uuids_test.cpp
+)
+
+target_link_libraries(
+    profiler-hub_sqlite_backend_tests
+    PRIVATE
+        profiler-hub-sqlite3
+        GTest::gtest
+        GTest::gtest_main
+        spdlog::spdlog
+        nlohmann_json::nlohmann_json
+        Threads::Threads
+)
+
+target_include_directories(
+    profiler-hub_sqlite_backend_tests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/source
+        ${CMAKE_SOURCE_DIR}/source/common
+        ${CMAKE_SOURCE_DIR}/source/data_storage
+        ${CMAKE_SOURCE_DIR}/source/queries
+        ${SQL_SCHEMA_BINARY_DIR}
+)
+
+gtest_discover_tests(
+    profiler-hub_sqlite_backend_tests
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    PROPERTIES LABELS "unit"
+)
