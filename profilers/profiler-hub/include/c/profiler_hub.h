@@ -90,8 +90,9 @@ extern "C"
      *        copy/memory allocate) for a track within an optional time
      *        window.
      * @param ctx Context to query.
-     * @param track_id Id of a track with ph_track_t::agent_id == 0, as
-     *        returned by ph_get_track_list()/ph_get_node().
+     * @param track_id Id of a track of any category other than
+     *        PH_TRACK_CATEGORY_PMC_AGENT, as returned by
+     *        ph_get_track_list()/ph_get_node().
      * @param start_ts Start of the time window (ns), or 0 for no filter.
      * @param end_ts End of the time window (ns), or 0 for no filter.
      * @param events Out parameter receiving the event list.
@@ -116,7 +117,7 @@ extern "C"
      * @brief Retrieves PMC/counter samples for a track within an optional
      *        time window.
      * @param ctx Context to query.
-     * @param track_id Id of a track with ph_track_t::agent_id != 0, as
+     * @param track_id Id of a PH_TRACK_CATEGORY_PMC_AGENT track, as
      *        returned by ph_get_track_list()/ph_get_node().
      * @param start_ts Start of the time window (ns), or 0 for no filter.
      * @param end_ts End of the time window (ns), or 0 for no filter.
