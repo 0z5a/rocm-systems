@@ -66,7 +66,7 @@ Full documentation for RCCL is available at [https://rccl.readthedocs.io](https:
 * gfx1250 AllToAll skips the DDA fabric paths under `NCCL_CHECK_MODE` or on a suspended or revoked communicator, and takes the next path.
 
 ### Removed
-* `RCCL_DDA_LL128_A2A_MAXBPP`. The gfx1250 AllToAll DDA LL128 block cap now comes from the communicator's CU budget. The kernel keeps 256 threads by default, and `RCCL_DDA_LL128_A2A_THREADS` still overrides that.
+* `RCCL_DDA_LL128_A2A_MAXBPP` and `RCCL_DDA_LL128_A2A_LPB`. The gfx1250 AllToAll DDA LL128 kernel moves one slice per warp, and its block cap now comes from the communicator's CU budget. It keeps 256 threads by default. `RCCL_DDA_LL128_A2A_THREADS` now defaults to `0`, which reads the arch table, and still overrides it with a multiple of 32 up to 1024 (it took a multiple of 16 before).
 
 * `RCCL_DDA_LL128_RS_THREADS` removed (was default `1024`): reduce-scatter LL128 now launches a fixed 512-thread block, one warp per slice, so the thread count is no longer a tuning knob.
 ### Resolved issues
