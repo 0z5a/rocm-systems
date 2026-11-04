@@ -363,6 +363,21 @@ jobs:
           ctest --test-dir build-samples-deb --parallel ${CTEST_JOBS} -LE "${${{ matrix.system.gpu }}_EXCLUDE_LABEL_REGEX}" -E "${${{ matrix.system.gpu }}_EXCLUDE_TESTS_REGEX}" --output-on-failure
           ctest --test-dir build-tests-deb   --parallel ${CTEST_JOBS} -LE "${${{ matrix.system.gpu }}_EXCLUDE_LABEL_REGEX}" -E "${${{ matrix.system.gpu }}_EXCLUDE_TESTS_REGEX}" --output-on-failure
 
+      - name: Preserve failed SDK test diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdk-failure-${{ matrix.system.os }}-${{ matrix.system.gpu }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            projects/rocprofiler-sdk/build*/CMakeCache.txt
+            projects/rocprofiler-sdk/build*/Testing/Temporary/LastTest.log
+            projects/rocprofiler-sdk/build*/Testing/Temporary/LastTestsFailed.log
+            projects/rocprofiler-sdk/build*/tests/rocprofv3/signal-handler/coordinated-shutdown-fork/**/*.json
+            projects/rocprofiler-sdk/build*/tests/rocprofv3/kernel-replay/**/*.json
+            projects/rocprofiler-sdk/build*/tests/rocprofv3/kernel-replay/**/*.csv
+
       - name: Archive production artifacts
         if: ${{ github.event_name == 'workflow_dispatch' && contains(matrix.system.gpu, env.CORE_EXT_RUNNER) }}
         uses: actions/upload-artifact@v7
@@ -569,6 +584,21 @@ jobs:
             --parallel 4 \
             -LE "${${{ matrix.system.gpu }}_EXCLUDE_LABEL_REGEX}" \
             -E "${${{ matrix.system.gpu }}_EXCLUDE_TESTS_REGEX}"
+
+      - name: Preserve failed SDK test diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdk-failure-${{ matrix.system.os }}-${{ matrix.system.gpu }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            projects/rocprofiler-sdk/build*/CMakeCache.txt
+            projects/rocprofiler-sdk/build*/Testing/Temporary/LastTest.log
+            projects/rocprofiler-sdk/build*/Testing/Temporary/LastTestsFailed.log
+            projects/rocprofiler-sdk/build*/tests/rocprofv3/signal-handler/coordinated-shutdown-fork/**/*.json
+            projects/rocprofiler-sdk/build*/tests/rocprofv3/kernel-replay/**/*.json
+            projects/rocprofiler-sdk/build*/tests/rocprofv3/kernel-replay/**/*.csv
 
   sanitizers:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}

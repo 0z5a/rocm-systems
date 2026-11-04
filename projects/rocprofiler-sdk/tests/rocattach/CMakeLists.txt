@@ -39,8 +39,8 @@ endif()
 
 set(rocattach-test-env
     "ROCP_TOOL_ATTACH=1"
-    "ROCPROFILER_REGISTER_LOG_LEVEL=${LOG_LEVEL}"
-    "ROCPROFILER_LOG_LEVEL=${LOG_LEVEL}"
+    "ROCPROFILER_REGISTER_LOG_LEVEL=warning"
+    "ROCPROFILER_LOG_LEVEL=warning"
     "ROCATTACH_LOG_LEVEL=${LOG_LEVEL}"
     "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:rocprofiler-sdk::rocprofiler-sdk-shared-library>:$ENV{LD_LIBRARY_PATH}"
     )
