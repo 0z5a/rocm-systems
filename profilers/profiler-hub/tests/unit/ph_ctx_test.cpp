@@ -306,6 +306,134 @@ TEST_F(ph_ctx_test, get_track_events_no_bounds_returns_all_events)
     EXPECT_EQ(events.list_size, 2U);
 }
 
+TEST_F(ph_ctx_test, get_track_events_returns_memory_copies_written_without_a_queue)
+{
+    auto writer = make_writer();
+
+    const writer_types::node_info_t node_info{ 1, 42, "machine-1" };
+    writer->register_node_info(node_info);
+
+    writer_types::process_info_t process_info;
+    process_info.pid     = 100;
+    process_info.node_id = 1;
+    writer->register_process_info(process_info);
+
+    writer_types::agent_info_t agent_info;
+    agent_info.unique_id.agent_type = "GPU";
+    agent_info.unique_id.type_index = 0;
+    agent_info.uuid                 = 123;
+    agent_info.node_id              = 1;
+    agent_info.process_id           = 100;
+    writer->register_agent_info(agent_info);
+
+    writer_types::trace_environment_t trace_environment;
+    trace_environment.node_id    = 1;
+    trace_environment.process_id = 100;
+
+    for(const uint64_t start : { 1000U, 5000U })
+    {
+        writer_types::memory_copy_data_t copy;
+        copy.name            = "hipMemcpy";
+        copy.region_name     = "hipMemcpy";
+        copy.start_timestamp = start;
+        copy.end_timestamp   = start + 500;
+        copy.dst_agent_id    = agent_info.unique_id;
+        copy.size            = 4096;
+        copy.event           = writer_types::event_data_t{};
+        writer->insert_memory_copy_data(copy, trace_environment);
+    }
+    writer->flush_in_memory_data_to_disk();
+    writer.reset();
+
+    ph_ctx ctx{ m_db_path };
+
+    const auto        tracks     = ctx.get_track_list();
+    const ph_track_t* copy_track = nullptr;
+    for(uint32_t i = 0; i < tracks.list_size; ++i)
+    {
+        if(tracks.tracks[i].category == PH_TRACK_CATEGORY_MEMORY_COPY_AGENT_QUEUE)
+        {
+            copy_track = &tracks.tracks[i];
+        }
+    }
+    ASSERT_NE(copy_track, nullptr);
+    EXPECT_EQ(copy_track->queue_id, 0U);
+    EXPECT_EQ(copy_track->event_count, 2U);
+
+    const auto events = ctx.get_track_events(copy_track->id, 0, 0);
+    EXPECT_EQ(events.list_size, copy_track->event_count);
+
+    const auto windowed = ctx.get_track_events(copy_track->id, 4800, 6000);
+    ASSERT_EQ(windowed.list_size, 1U);
+    EXPECT_EQ(windowed.events[0].start, 5000U);
+}
+
+TEST_F(ph_ctx_test, get_track_samples_returns_counter_events_written_with_a_sample)
+{
+    auto writer = make_writer();
+    seed_track_with_one_event(*writer);
+
+    writer_types::agent_info_t agent_info;
+    agent_info.unique_id.agent_type = "GPU";
+    agent_info.unique_id.type_index = 0;
+    agent_info.uuid                 = 123;
+    agent_info.node_id              = 1;
+    agent_info.process_id           = 100;
+    writer->register_agent_info(agent_info);
+
+    writer_types::pmc_info_t pmc_info;
+    pmc_info.unique_id.name     = "occupancy";
+    pmc_info.unique_id.agent_id = agent_info.unique_id;
+    pmc_info.symbol             = "occupancy";
+    pmc_info.node_id            = 1;
+    pmc_info.process_id         = 100;
+    writer->register_pmc_info(pmc_info);
+
+    writer_types::track_info_t sample_track;
+    sample_track.node_id    = 1;
+    sample_track.process_id = 100;
+    sample_track.thread_id  = 200;
+
+    for(const uint64_t timestamp : { 1500U, 5500U })
+    {
+        writer_types::pmc_event_data_t pmc_event;
+        pmc_event.event            = writer_types::event_data_t{};
+        pmc_event.value            = static_cast<double>(timestamp) / 1000.0;
+        pmc_event.sample.timestamp = timestamp;
+        pmc_event.sample.track     = sample_track;
+        writer->insert_pmc_event_data(pmc_event, pmc_info.unique_id);
+    }
+    writer->flush_in_memory_data_to_disk();
+    writer.reset();
+
+    ph_ctx ctx{ m_db_path };
+
+    const auto        tracks    = ctx.get_track_list();
+    const ph_track_t* pmc_track = nullptr;
+    uint32_t          pmc_count = 0;
+    for(uint32_t i = 0; i < tracks.list_size; ++i)
+    {
+        if(tracks.tracks[i].category == PH_TRACK_CATEGORY_PMC_AGENT)
+        {
+            pmc_track = &tracks.tracks[i];
+            ++pmc_count;
+        }
+    }
+    ASSERT_EQ(pmc_count, 1U);
+    EXPECT_STREQ(pmc_track->track_name, "occupancy");
+    EXPECT_EQ(pmc_track->event_count, 2U);
+    EXPECT_EQ(pmc_track->start_ts, 1500U);
+    EXPECT_EQ(pmc_track->end_ts, 5500U);
+
+    const auto samples = ctx.get_track_samples(pmc_track->id, 0, 0);
+    EXPECT_EQ(samples.list_size, pmc_track->event_count);
+
+    const auto windowed = ctx.get_track_samples(pmc_track->id, 5000, 6000);
+    ASSERT_EQ(windowed.list_size, 1U);
+    EXPECT_EQ(windowed.samples[0].timestamp, 5500U);
+    EXPECT_DOUBLE_EQ(windowed.samples[0].value, 5.5);
+}
+
 TEST_F(ph_ctx_test, get_track_samples_returns_empty_for_non_pmc_track)
 {
     auto writer = make_writer();

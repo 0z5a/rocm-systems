@@ -1126,11 +1126,15 @@ private:
                         "PE.pmc_id AS counter_id",
                         "PI.name",
                         "COUNT(*) AS count",
-                        "MIN(S.timestamp) AS min_start",
-                        "MAX(S.timestamp) AS max_end")
+                        "MIN(COALESCE(S.timestamp, K.start)) AS min_start",
+                        "MAX(COALESCE(S.timestamp, K.start)) AS max_end")
                 .from(fmt::format("rocpd_pmc_event_{}", m_uuid), "PE")
                 .inner_join("rocpd_info_pmc", "PI", "PI.id = PE.pmc_id")
-                .inner_join("rocpd_sample", "S", "S.event_id = PE.event_id")
+                .left_join("rocpd_sample", "S", "S.event_id = PE.event_id")
+                .left_join(fmt::format("rocpd_kernel_dispatch_{}", m_uuid),
+                           "K",
+                           "K.event_id = PE.event_id")
+                .where("COALESCE(S.timestamp, K.start) IS NOT NULL")
                 .group_by("PI.nid", "PI.pid", "PI.agent_id", "PE.pmc_id", "PI.name")
                 .get_query_string();
 
@@ -1150,10 +1154,13 @@ private:
     void initialize_pmc_sample_statements()
     {
         queries::select::table_select_query query;
-        auto&                               base = query.select("S.timestamp", "PE.value")
+        auto& base = query.select("COALESCE(S.timestamp, K.start)", "PE.value")
                          .from(fmt::format("rocpd_pmc_event_{}", m_uuid), "PE")
                          .inner_join("rocpd_info_pmc", "PI", "PI.id = PE.pmc_id")
-                         .inner_join("rocpd_sample", "S", "S.event_id = PE.event_id");
+                         .left_join("rocpd_sample", "S", "S.event_id = PE.event_id")
+                         .left_join(fmt::format("rocpd_kernel_dispatch_{}", m_uuid),
+                                    "K",
+                                    "K.event_id = PE.event_id");
 
         m_pmc_sample_statement =
             m_backend->create_read_statement_executor<pmc_sample_result,
@@ -1161,6 +1168,7 @@ private:
                 base.where("PI.nid = ?")
                     .and_where("PI.agent_id = ?")
                     .and_where("PE.pmc_id = ?")
+                    .and_where("COALESCE(S.timestamp, K.start) IS NOT NULL")
                     .get_query_string(),
                 &pmc_sample_result::timestamp,
                 &pmc_sample_result::value);
@@ -1171,8 +1179,8 @@ private:
             base.where("PI.nid = ?")
                 .and_where("PI.agent_id = ?")
                 .and_where("PE.pmc_id = ?")
-                .and_where("S.timestamp >= ?")
-                .and_where("S.timestamp <= ?")
+                .and_where("COALESCE(S.timestamp, K.start) >= ?")
+                .and_where("COALESCE(S.timestamp, K.start) <= ?")
                 .get_query_string(),
             &pmc_sample_result::timestamp,
             &pmc_sample_result::value);
@@ -1385,7 +1393,7 @@ private:
             m_backend->create_read_statement_executor<timeline_event_result,
                                                       bind_types<size_t, size_t, size_t>>(
                 unfiltered_sql + " WHERE " + a + ".nid = ? AND " + agent_col +
-                    " = ? AND " + a + ".queue_id = ?",
+                    " = ? AND IFNULL(" + a + ".queue_id, 0) = ?",
                 &timeline_event_result::id,
                 &timeline_event_result::start_timestamp,
                 &timeline_event_result::end_timestamp,
@@ -1415,7 +1423,7 @@ private:
             timeline_event_result,
             bind_types<size_t, size_t, size_t, size_t, size_t>>(
             unfiltered_sql + " WHERE " + a + ".nid = ? AND " + agent_col + " = ? AND " +
-                a + ".queue_id = ?" + time_where,
+                "IFNULL(" + a + ".queue_id, 0) = ?" + time_where,
             &timeline_event_result::id,
             &timeline_event_result::start_timestamp,
             &timeline_event_result::end_timestamp,
