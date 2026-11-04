@@ -132,7 +132,7 @@ python tools/config_management/hash_manager.py --compute-all src/rocprof_compute
 
 The first command verifies structural conformance. The second refreshes the hash DB so `hash_checker.py` agrees.
 
-Each panel also has a view under `src/rocprof_compute_soc/views/` (shared, `cdna/`, or one directory per arch) that lists the panel's metrics by metric library id. Make the same change in the view, and in the metric library for a formula, unit, peak or description; then check that the views still give the panel configs:
+Analyze shows the views under `src/rocprof_compute_soc/views/` (shared, `cdna/`, or one directory per arch), which list each panel's metrics by metric library id; profile still collects counters from the panel YAMLs. Make the same change in the view, and in the metric library for a formula, unit, peak or description; then check that the views still give the panel configs:
 ```bash
 python3 tools/validate_views.py
 ```
@@ -178,10 +178,10 @@ This check:
 
 ## Metric Descriptions
 
-Metric descriptions flow unidirectionally from panel YAMLs to documentation:
+Metric descriptions flow unidirectionally from the analysis views to documentation:
 
 ```
-Panel YAMLs (src/) → Per-Arch YAMLs (tools/) → Docs YAMLs (docs/) → Sphinx HTML
+Views and metric library (src/) → Per-Arch YAMLs (tools/) → Docs YAMLs (docs/) → Sphinx HTML
 ```
 
 **Files:**
@@ -193,9 +193,9 @@ docs/data/metrics/
   └── <arch>_metrics.yaml                                  # per-arch rst + unit (generated)
 ```
 
-**After editing panel `metrics_description` sections:**
+**After editing a description** (a metric's `description` in the metric library, or a view row's `description` or `description_note`):
 ```bash
-python tools/config_management/metric_description_manager.py --sync-all src/rocprof_compute_soc/analysis_configs
+python tools/config_management/metric_description_manager.py --sync-all
 python tools/config_management/metric_description_manager.py --generate-docs
 ```
 
