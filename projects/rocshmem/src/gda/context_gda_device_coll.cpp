@@ -538,7 +538,12 @@ __device__ void GDAContext::alltoallmem_linear_thread_puts_wave(rocshmem_team_t 
 
 __device__ void GDAContext::fcollectmem_wg(rocshmem_team_t team, void *dst,
                                      const void *src, int nelems) {
-  fcollectmem_linear_thread_puts_wg(team, dst, src, nelems);
+  GDATeam *team_obj_dispatch = reinterpret_cast<GDATeam *>(team);
+  int pe_size_dispatch = team_obj_dispatch->num_pes;
+  if (nelems < 512 && 2 * pe_size_dispatch <= ROCSHMEM_ALLTOALL_SYNC_SIZE)
+    fcollectmem_linear_thread_puts_wg(team, dst, src, nelems);
+  else
+    fcollectmem_linear_wg(team, dst, src, nelems);
 }
 
 __device__ void GDAContext::fcollectmem_linear_wg(rocshmem_team_t team, void *dst,
@@ -575,7 +580,12 @@ __device__ int GDAContext::fcollectmem_wave(rocshmem_team_t team, void *dst,
   if (dst == nullptr || src == nullptr || team == ROCSHMEM_TEAM_INVALID)
     return ROCSHMEM_ERROR;
 
-  fcollectmem_linear_thread_puts_wave(team, dst, src, nelems);
+  GDATeam *team_obj_dispatch = reinterpret_cast<GDATeam *>(team);
+  int pe_size_dispatch = team_obj_dispatch->num_pes;
+  if (nelems < 512 && 2 * pe_size_dispatch <= ROCSHMEM_ALLTOALL_SYNC_SIZE)
+    fcollectmem_linear_thread_puts_wave(team, dst, src, nelems);
+  else
+    fcollectmem_linear_wave(team, dst, src, nelems);
 
   return ROCSHMEM_SUCCESS;
 }
