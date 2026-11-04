@@ -763,6 +763,8 @@ def build_metric_list(
     Returns a mapping of (panel/table/metric IDs -> display names)
     without constructing DataFrames. Use this directly when
     only the metric listing is needed (e.g. --list-metrics, --list-blocks).
+    ``_collect.*`` rows stay in the config for evaluation and are omitted
+    here. Later metrics keep their indexes.
     """
     metric_list: dict[str, str] = {}
 
@@ -781,6 +783,8 @@ def build_metric_list(
 
                     for i, (key, entries) in enumerate(data_config["metric"].items()):
                         metric_idx = f"{table_idx}.{i}"
+                        if isinstance(key, str) and key.startswith("_collect."):
+                            continue
                         if _metric_has_valid_expr(entries, data_config):
                             metric_list[metric_idx] = key
 

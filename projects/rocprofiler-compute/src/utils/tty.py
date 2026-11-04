@@ -286,13 +286,14 @@ def is_roofline_shown(
                 }
 
                 for table_id, (table_name, df) in tables.items():
-                    if df.empty:
+                    visible = _visible_cli_table_rows(df, "metric_table")
+                    if visible.empty:
                         continue
 
                     print(f"{base_indent}├─ {table_name}", file=output)
 
                     # Remove hidden columns
-                    display_df = df.copy()
+                    display_df = visible.copy()
                     for col in hidden_cols:
                         if col in display_df.columns:
                             display_df = display_df.drop(columns=[col])
