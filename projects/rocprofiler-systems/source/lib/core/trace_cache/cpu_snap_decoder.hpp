@@ -16,7 +16,10 @@ namespace rocprofsys::trace_cache
  * Feed the chunks of a single process in store order, starting with the first one.
  * Every sample becomes one slice per frame, outermost frame first, spanning from the
  * thread's previous sample to this one; a thread's first sample only opens its first
- * slice. Frames are named by their raw address: there is no symbolization yet.
+ * slice. Frames are named by cpu-snap's symbolizer (in-process, libdwfl), resolved
+ * against the modules loaded when the sample was taken; an address it cannot name
+ * keeps "0x<address>". The call_stack JSON carries name, pc and binary path, as the
+ * old sampler writes it.
  */
 class cpu_snap_decoder
 {

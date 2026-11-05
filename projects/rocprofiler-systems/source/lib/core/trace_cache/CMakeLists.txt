@@ -38,8 +38,9 @@ set(trace_cache_headers
 
 target_sources(rocprofiler-systems-core-library PRIVATE ${trace_cache_sources})
 
-# cpu_snap_decoder.cpp reads cpu-snap's stream format (core component, no libdw).
-target_link_libraries(rocprofiler-systems-core-library PRIVATE cpu_snap::core)
+# cpu_snap_decoder.cpp reads cpu-snap's stream format (core component) and symbolizes the
+# frames (processing component, libdw).
+target_link_libraries(rocprofiler-systems-core-library PRIVATE cpu_snap::processing)
 
 target_include_directories(
     rocprofiler-systems-core-library
