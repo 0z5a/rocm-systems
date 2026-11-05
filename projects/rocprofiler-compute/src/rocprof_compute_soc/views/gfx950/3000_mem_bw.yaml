@@ -1,0 +1,104 @@
+view: Memory Bandwidth Analysis
+legacy_panel_id: 3000
+alias: membw_analysis
+tables:
+- id: 3001
+  title: L1 Cache
+  header:
+    metric: Metric
+    value: Avg
+    unit: Unit
+  metrics:
+  - metric: compute.l1_cache_vmem_stalled_by_l1_cache
+    label: L1 Cache - VMEM stalled by L1 Cache
+    description_note: 'Equation: SUM((SQ_VMEM_TA_CMD_FIFO_FULL * 100)) / SUM(SQ_BUSY_CYCLES)'
+    legacy_id: 30.1.0
+  - metric: vl1d.cache_ta_stalled_by_tcp_aggregated
+    label: L1 Cache - TA stalled by TCP (aggregated)
+    description_note: 'Equation: SUM((TCP_TCP_TA_ADDR_STALL_CYCLES_sum * 100)) / SUM(TCP_GATE_EN2_sum)'
+    legacy_id: 30.1.1
+  - metric: vl1d.cache_tcp_stalled_by_utcl1
+    label: L1 Cache - TCP stalled by UTCL1
+    description_note: 'Equation: SUM((TCP_UTCL1_STALL_INFLIGHT_MAX_sum * 100)) / SUM(TCP_GATE_EN2_sum)'
+    legacy_id: 30.1.2
+  - metric: vl1d.cache_tcp_stalled_by_utcl2
+    label: L1 Cache - TCP stalled by UTCL2
+    description_note: 'Equation: SUM((TCP_PERF_SEL_UTCL1_STALL_LFIFO_NOT_RES_sum * 100)) /
+      SUM(TCP_GATE_EN2_sum)'
+    legacy_id: 30.1.3
+  - metric: vl1d.cache_tcp_stalled_by_td
+    label: L1 Cache - TCP stalled by TD
+    description_note: 'Equation: SUM((TCP_TD_TCP_STALL_CYCLES_sum * 100)) / SUM(TCP_GATE_EN2_sum)'
+    legacy_id: 30.1.4
+  - metric: vl1d.cache_tcp_stalled_by_l2
+    label: L1 Cache - TCP stalled by L2
+    description_note: 'Equation: SUM((TCP_TCR_TCP_STALL_CYCLES_sum * 100)) / SUM(TCP_GATE_EN2_sum)'
+    legacy_id: 30.1.5
+- id: 3002
+  title: L2 Bottleneck Detection Indicators
+  header:
+    metric: Metric
+    value: Avg
+    unit: Unit
+  metrics:
+  - metric: l2.input_buffer_stall_rate
+    label: L2 Back Pressure Indicator
+    description: 'Percentage of L2 busy time the input buffer was stalled. A rate >= 10% indicates
+      L2 is backpressuring L1 (GL1/GL2 potential bottleneck). Equation: 100 * (SUM(TCC_IB_STALL_sum)
+      / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.2.0
+  - metric: fabric.rd_hbm_stall
+    label: L2 Memory BW Bound - Read Credit Pressure
+    description: 'Percentage of L2 busy time read requests were stalled due to HBM credit
+      exhaustion. High values (>10%) combined with high memory utilization indicate memory
+      read bandwidth bound. Equation: 100 * (SUM(TCC_EA0_RDREQ_DRAM_CREDIT_STALL_sum) / SUM(TCC_BUSY_sum))'
+  - metric: fabric.wr_hbm_stall
+    label: L2 Memory BW Bound - Write Credit Pressure
+    description: 'Percentage of L2 busy time write requests were stalled due to HBM credit
+      exhaustion. High values (>10%) combined with high memory utilization indicate memory
+      write bandwidth bound. Equation: 100 * (SUM(TCC_EA0_WRREQ_DRAM_CREDIT_STALL_sum) / SUM(TCC_BUSY_sum))'
+  - metric: fabric.memory_bw_bound_combined_credit_pressure
+    label: L2 Memory BW Bound - Combined Credit Pressure
+    description_note: 'Equation: 100 * (SUM(TCC_EA0_RDREQ_DRAM_CREDIT_STALL_sum + TCC_EA0_WRREQ_DRAM_CREDIT_STALL_sum)
+      / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.2.3
+  - metric: l2.lat_fifo_full_rate
+    label: L2 Internal Resource Pressure - Latency FIFO
+    description: 'Percentage of L2 busy time the latency FIFO was full. A rate >= 10% indicates
+      L2 internal resource exhaustion bottleneck. This is one of the TCC_TAG_STALL breakdown
+      components (LFIFO full, 2-deep). Equation: 100 * (SUM(TCC_LATENCY_FIFO_FULL_sum) / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.2.4
+  - metric: l2.wr_data_fifo_full_rate
+    label: L2 Internal Resource Pressure - Source FIFO
+    description: 'Percentage of L2 busy time the source data FIFO was full. A rate >= 10%
+      indicates L2 write data path bottleneck. Equation: 100 * (SUM(TCC_SRC_FIFO_FULL_sum)
+      / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.2.5
+  - metric: l2.hit_rate
+    label: L2 Cache Efficiency
+    description: 'L2 cache hit rate. A low rate (<50%) indicates the workload exceeds L2 cache
+      capacity, leading to high memory traffic. This helps distinguish cache-bound from memory
+      bandwidth-bound scenarios. Equation: 100 * (SUM(TCC_HIT_sum) / SUM(TCC_HIT_sum + TCC_MISS_sum))'
+  - metric: fabric.remote_access_pressure_gmi
+    description_note: 'Equation: 100 * (SUM(TCC_EA0_RDREQ_GMI_CREDIT_STALL_sum + TCC_EA0_WRREQ_GMI_CREDIT_STALL_sum)
+      / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.2.7
+- id: 3003
+  title: EA Bottleneck Detection Indicators
+  header:
+    metric: Metric
+    value: Avg
+    unit: Unit
+  metrics:
+  - metric: fabric.ea_io_bw_bound_combined
+    label: EA IO BW Bound - Combined
+    description_note: 'Equation: 100 * (SUM(TCC_EA0_RDREQ_IO_CREDIT_STALL_sum + TCC_EA0_WRREQ_IO_CREDIT_STALL_sum)
+      / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.3.0
+  - metric: fabric.ea_wr_backpressure
+    description_note: 'Equation: 100 * (SUM(TCC_EA0_WRREQ_STALL_sum + TCC_TOO_MANY_EA_WRREQS_STALL_sum)
+      / SUM(TCC_BUSY_sum))'
+    legacy_id: 30.3.1
+  - metric: fabric.ea_hbm_atomic_pressure
+    description_note: 'Equation: 100 * (SUM(TCC_EA0_WRREQ_ATOMIC_DRAM_sum) / SUM(TCC_EA0_WRREQ_DRAM_sum))'
+    legacy_id: 30.3.2
