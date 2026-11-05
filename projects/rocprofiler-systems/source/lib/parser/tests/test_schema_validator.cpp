@@ -125,11 +125,11 @@ TEST(parser_schema_validator, boolean_values)
 {
     const auto param = make_param(param_type::boolean);
     for(const auto* value :
-        { "true", "FALSE", "Yes", "no", "on", "OFF", "y", "N", "1", "0", "2", "" })
+        { "true", "FALSE", "Yes", "no", "on", "OFF", "y", "N", "1", "0", "2" })
     {
         EXPECT_TRUE(is_valid_value(param, value)) << value;
     }
-    for(const auto* value : { "truthy", " true" })
+    for(const auto* value : { "", "truthy", " true" })
     {
         EXPECT_FALSE(is_valid_value(param, value)) << value;
     }
