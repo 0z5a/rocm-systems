@@ -91,13 +91,14 @@
  * - 1.36 - hsa_amd_signal_batch_create, hsa_amd_signal_batch_destroy,
  *          HSA_AMD_MEMORY_POOL_INFO_SIGNAL_CAPABLE,
  *          HSA_AMD_AGENT_INFO_PCIE_STORES_NEED_FLUSH, HSA_AMD_AGENT_INFO_HOST_ATOMICS_SUPPORTED,
- *          HSA_AMD_AGENT_INFO_SIGNAL_HINTS_SUPPORTED,
  *          hsa_amd_signal_set_hints, hsa_amd_signal_get_hints (inline)
  * - 1.37 - hsa_amd_memory_async_batch_copy: HSA_AMD_MEMORY_COPY_OP_RECT
  * - 1.38 - hsa_amd_pointer_info: HSA_EXT_POINTER_TYPE_SVM
+ * - 1.39 - hsa_amd_agent_aql_properties_t: HSA_AMD_AQL_PROPERTY_SIGNAL_HINTS, which replaces
+ *          HSA_AMD_AGENT_INFO_SIGNAL_HINTS_SUPPORTED (1.36, removed)
  */
 #define HSA_AMD_INTERFACE_VERSION_MAJOR 1
-#define HSA_AMD_INTERFACE_VERSION_MINOR 38
+#define HSA_AMD_INTERFACE_VERSION_MINOR 39
 
 #ifdef __cplusplus
 extern "C" {
@@ -1033,13 +1034,8 @@ typedef enum hsa_amd_agent_info_s {
    * The type of this attribute is bool.
    */
   HSA_AMD_AGENT_INFO_HOST_ATOMICS_SUPPORTED = 0xA128,
-  /**
-   * Whether the agent's CP firmware consumes completion signal handle hints
-   * (::hsa_amd_signal_set_hints). Hints may be put in the completion_signal
-   * of an AQL packet only on an agent that reports true. GPU agents only.
-   * The type of this attribute is bool.
-   */
-  HSA_AMD_AGENT_INFO_SIGNAL_HINTS_SUPPORTED = 0xA129,
+  /* 0xA129 is not reused: it was HSA_AMD_AGENT_INFO_SIGNAL_HINTS_SUPPORTED,
+     replaced by ::HSA_AMD_AQL_PROPERTY_SIGNAL_HINTS. */
 } hsa_amd_agent_info_t;
 
 /**
@@ -1054,6 +1050,13 @@ typedef enum hsa_amd_agent_memory_properties_s {
  */
 typedef enum hsa_amd_agent_aql_properties_s {
   HSA_AMD_AQL_PROPERTY_EXT_DISPATCH = (1 << 0),
+  /**
+   * The agent's CP firmware consumes completion signal handle hints
+   * (::hsa_amd_signal_set_hints). Hints may be put in the completion_signal
+   * of an AQL packet only on an agent that reports this extension. GPU agents
+   * only.
+   */
+  HSA_AMD_AQL_PROPERTY_SIGNAL_HINTS = (1 << 1),
 } hsa_amd_agent_aql_properties_t;
 
 /**
@@ -2240,8 +2243,8 @@ hsa_status_t HSA_API hsa_amd_signal_batch_destroy(hsa_amd_signal_batch_t batch);
  * @brief Return @p signal with its handle hints replaced by @p hints.
  *
  * @p hints combines ::amd_signal_hint_t values; 0 returns the plain handle.
- * Use hints only on an agent that reports
- * ::HSA_AMD_AGENT_INFO_SIGNAL_HINTS_SUPPORTED: its CP firmware consumes every
+ * Use hints only on an agent that reports ::HSA_AMD_AQL_PROPERTY_SIGNAL_HINTS
+ * in ::HSA_AMD_AGENT_INFO_AQL_EXTENSIONS: its CP firmware consumes every
  * defined hint, while firmware without support takes the hinted handle as the
  * signal address. Bits outside
  * ::AMD_SIGNAL_HINT_MASK are dropped. A hinted handle is only for the
